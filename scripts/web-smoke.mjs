@@ -559,7 +559,7 @@ async function run(scheme) {
       if ((await german.getAttribute('aria-checked')) !== 'true') throw new Error('German products only is not the default');
       // how the packs are chosen, with the rule thresholds
       await btn('How this is chosen').click();
-      await text(/a German name and was scanned at least 3 times/).waitFor();
+      await text(/its barcode was issued in Germany/).waitFor();
       await text(/at least 20 times/).waitFor();
       await all.click();
       if ((await all.getAttribute('aria-checked')) !== 'true') throw new Error('choosing a pack did nothing');

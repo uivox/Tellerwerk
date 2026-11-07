@@ -9,7 +9,8 @@
 // nutrition pass the same checks the app uses (src/lib/offlinePack.ts → packRow), orders them by how
 // often they are scanned, and makes two packs:
 //   all     every such product (as before the choice existed);
-//   german  only those with a German name that look really sold here (offlinePack.ts → germanOnlyReason).
+//   german  only those with a sign of Germany: a German barcode, a German shop or house brand, Germany as
+//           origin or place of manufacture, or many scans (offlinePack.ts → germanOnlyReason).
 // It writes:
 //   out/de/products-<sha512 prefix>.txt   each pack's products, one per line
 //   out/de/packs.json                     both packs (format 2), signed: what the app reads
@@ -33,7 +34,7 @@ const reportDir = process.env.OFFLINE_PACK_REPORT ?? 'pack-report';
 const lib = await import(pathToFileURL(join(process.cwd(), '.test-build/src/lib/offlinePack.js')).href);
 const {
   packRow, germanOnlyReason, readEnvelope, readCatalog, PackIndex, PACK_PUBLIC_KEY, PACK_FORMAT, PACK_CATALOG_FORMAT, PACK_COUNTRY,
-  MAX_PACK_BYTES, MAX_PACK_ROWS, GERMAN_MIN_SCANS, FOREIGN_MIN_SCANS, foodFromPackLine,
+  MAX_PACK_BYTES, MAX_PACK_ROWS, FOREIGN_MIN_SCANS, foodFromPackLine,
 } = lib;
 
 /** Stay well below the app's hard limits. */
@@ -62,7 +63,7 @@ if (!dryRun) {
 
 const COLUMNS = [
   'code', 'product_name', 'product_name_de', 'generic_name', 'generic_name_de', 'brands', 'brands_en', 'brands_tags', 'stores', 'quantity',
-  'serving_size', 'serving_quantity', 'countries_tags', 'unique_scans_n', 'lang', 'lc',
+  'serving_size', 'serving_quantity', 'countries_tags', 'unique_scans_n', 'origins_tags', 'manufacturing_places', 'manufacturing_places_tags',
   'energy-kcal_100g', 'energy-kj_100g', 'energy_100g', 'proteins_100g', 'carbohydrates_100g', 'fat_100g',
   'sugars_100g', 'fiber_100g', 'saturated-fat_100g', 'salt_100g', 'sodium_100g',
 ];
@@ -73,8 +74,6 @@ let idx = {};
 let total = 0;
 let germany = 0;
 let skippedBroken = 0;
-let withNameDe = 0;
-let withLangDe = 0;
 
 /** One line of the export. Returns false to stop (format changed). */
 function handleLine(raw) {
@@ -105,8 +104,6 @@ function handleLine(raw) {
   for (const c of COLUMNS) if (idx[c] !== -1) rec[c] = f[idx[c]];
   const row = packRow(rec);
   if (!row) return;
-  if ((rec.product_name_de ?? '').trim()) withNameDe++;
-  if ((rec.lang || rec.lc || '').trim() === 'de') withLangDe++;
   const why = germanOnlyReason(rec, row.scans);
   // Keyed by number: `row.code` is a slice of the 64 KB chunk it came from, and keeping it would keep
   // that whole chunk in memory (V8 sliced strings), so the export would pile up. Barcodes have at most
@@ -171,9 +168,13 @@ if (all.lines.length < MIN_ROWS) {
   console.error(`Only ${all.lines.length} products passed (of ${germany} sold in Germany, ${total} in total). Not publishing.`);
   process.exit(1);
 }
-const removed = { no_german_name: 0, not_seen_here: 0 };
-for (const [, r] of rows) if (r.why !== 'keep') removed[r.why]++;
-const german = makePack(rows.filter(([, r]) => r.why === 'keep').map(([, r]) => r));
+const removed = { not_german: 0 };
+const kept = { barcode: 0, shop: 0, made_here: 0, scans: 0 };
+for (const [, r] of rows) {
+  if (r.why === 'not_german') removed.not_german++;
+  else kept[r.why]++;
+}
+const german = makePack(rows.filter(([, r]) => r.why !== 'not_german').map(([, r]) => r));
 const germanOk = german.lines.length >= MIN_GERMAN_ROWS;
 if (!germanOk) {
   console.log(`::warning title=Offline pack::The German-products pack would have only ${german.lines.length} products (minimum ${MIN_GERMAN_ROWS}); only the full pack is published.`);
@@ -206,7 +207,7 @@ const catalog = {
     sha512: p.sha512,
     file: p.file,
     cut: p.cut,
-    ...(id === 'german' ? { removed } : {}),
+    ...(id === 'german' ? { removed, kept } : {}),
   })),
 };
 
@@ -275,10 +276,9 @@ const summary = [
   `Offline packs${dryRun ? ' (dry run: nothing signed or published)' : ''}, built ${created}`,
   `All products sold in Germany: ${n(all.lines.length)} products, ${mb(all.body.length)}${all.cut ? `, ${n(all.cut)} left out for size` : ''}`,
   `German products only: ${n(german.lines.length)} products, ${mb(german.body.length)}${german.cut ? `, ${n(german.cut)} left out for size` : ''}${germanOk ? '' : ` (below ${n(MIN_GERMAN_ROWS)}: not published)`}`,
-  `  removed, no German name and fewer than ${FOREIGN_MIN_SCANS} scans: ${n(removed.no_german_name)}`,
-  `  removed, German name but fewer than ${GERMAN_MIN_SCANS} scans and no German shop: ${n(removed.not_seen_here)}`,
+  `  kept for a German barcode ${n(kept.barcode)}, a German shop or house brand ${n(kept.shop)}, made in Germany ${n(kept.made_here)}, ${FOREIGN_MIN_SCANS}+ scans ${n(kept.scans)}`,
+  `  removed, no sign of Germany and fewer than ${FOREIGN_MIN_SCANS} scans: ${n(removed.not_german)}`,
   `(export rows ${n(total)}, sold in Germany ${n(germany)}, passed the checks ${n(best.size)}, broken lines ${skippedBroken})`,
-  `German-name signals among products that passed: product_name_de ${n(withNameDe)}, language column "de" ${n(withLangDe)}${idx.lang === -1 && idx.lc === -1 ? ' (the export has no lang/lc column)' : ''}`,
   `With brand ${(brandShare * 100).toFixed(0)} %, with store ${(storeShare * 100).toFixed(0)} %`,
   ...packs.map(({ id, p }) => `File ${id}: ${p.file}`),
 ].join('\n');
@@ -293,16 +293,17 @@ const rowText = (r) => {
   return `| ${f[0]} | ${esc(f[1])} | ${esc(f[2])} | ${esc(f[3])} | ${n(r.scans)} |`;
 };
 const table = (title, list) => [`### ${title}`, '', '| Barcode | Name | Brand | Stores | Scans |', '|---|---|---|---|---|', ...list.map(rowText), ''];
-const keptRows = rows.filter(([, r]) => r.why === 'keep').map(([, r]) => r);
+const keptRows = rows.filter(([, r]) => r.why !== 'not_german').map(([, r]) => r);
 const spread = (list, k) => (list.length <= k ? list : Array.from({ length: k }, (_, i) => list[Math.floor((i * list.length) / k)]));
 const report = [
   '# Offline packs: build report',
   '',
   ...summary.split('\n').map((l) => `${l}  `),
   '',
-  ...table(`Removed: no German name, fewer than ${FOREIGN_MIN_SCANS} scans (most scanned first)`, rows.filter(([, r]) => r.why === 'no_german_name').slice(0, 30).map(([, r]) => r)),
-  ...table(`Removed: German name, fewer than ${GERMAN_MIN_SCANS} scans, no German shop (most scanned first)`, rows.filter(([, r]) => r.why === 'not_seen_here').slice(0, 30).map(([, r]) => r)),
-  ...table('Kept in “German products only”: the 30 with the fewest scans', keptRows.slice(-30)),
+  ...table(`Removed: no sign of Germany, fewer than ${FOREIGN_MIN_SCANS} scans (most scanned first)`, rows.filter(([, r]) => r.why === 'not_german').slice(0, 30).map(([, r]) => r)),
+  ...table(`Removed: 30 spread across all removed`, spread(rows.filter(([, r]) => r.why === 'not_german').map(([, r]) => r), 30)),
+  ...table(`Kept only for ${FOREIGN_MIN_SCANS}+ scans (fewest scans first)`, rows.filter(([, r]) => r.why === 'scans').map(([, r]) => r).slice(-30)),
+  ...table('Kept for being made in Germany (spread)', spread(rows.filter(([, r]) => r.why === 'made_here').map(([, r]) => r), 15)),
   ...table('Kept in “German products only”: 30 spread across the pack', spread(keptRows, 30)),
 ];
 mkdirSync(reportDir, { recursive: true });

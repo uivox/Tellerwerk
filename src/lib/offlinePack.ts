@@ -58,12 +58,6 @@ export class PackError extends Error {
 }
 
 
-/** How many products each rule of the `german` pack removed (written by the builder). */
-export interface PackRemoved {
-  no_german_name: number;
-  not_seen_here: number;
-}
-
 export interface PackManifest {
   /** `all` for a format-1 manifest. */
   id: PackId;
@@ -79,8 +73,9 @@ export interface PackManifest {
   file: string;
   source: string;
   license: string;
-  /** `german` pack: products removed by each rule. */
+  /** `german` pack: products left out, and how many each sign of Germany kept. */
   removed?: PackRemoved;
+  kept?: PackKept;
   /** Products left out only because the pack reached its size limit. */
   cut?: number;
 }
@@ -201,10 +196,11 @@ export function packRow(rec: Record<string, string | undefined>): { code: string
 }
 
 /* ---------- The `german` pack's rules (scripts/build-offline-pack.mjs) ---------- */
+// Open Food Facts' CSV export has no language field and only the name in each product's main
+// language, so "has a German name" can't be told from it (checked with a test build, November 2026).
+// The rules use what the export does say about Germany.
 
-/** A product with a German name stays with at least this many scans, or with a German shop in `stores`. */
-export const GERMAN_MIN_SCANS = 3;
-/** A product with only a non-German name stays only with at least this many scans. */
+/** A product without any other sign of Germany stays with at least this many scans. */
 export const FOREIGN_MIN_SCANS = 20;
 /** Shops in Germany (folded like `foldSearch`); one of them in `stores` counts as sold here. */
 export const GERMAN_STORES = [
@@ -213,29 +209,65 @@ export const GERMAN_STORES = [
   'metro', 'nahkauf', 'e center', 'v markt', 'wasgau', 'bunting', 'np markt', 'diska', 'mix markt',
 ];
 
+/** Comma-separated text from the export, each part folded. */
+const foldedParts = (s: string | undefined) =>
+  (s ?? '')
+    .split(',')
+    .map((p) => foldSearch(p.replace(/^[a-z]{2}:/, '')))
+    .filter(Boolean);
+const matchesAny = (parts: string[], names: string[]) => parts.some((p) => names.some((n) => n && (p === n || p.startsWith(`${n} `))));
+
 /** Whether `stores` (as in the export, comma-separated) names a shop in Germany. */
 export function hasGermanStore(stores: string | undefined): boolean {
-  return (stores ?? '')
-    .split(',')
-    .map((p) => foldSearch(p))
-    .some((p) => p && GERMAN_STORES.some((n) => p === n || p.startsWith(`${n} `)));
+  return matchesAny(foldedParts(stores), GERMAN_STORES);
 }
 
-/** Whether the product has a German name: `product_name_de`, or the main name with German as the product's language. */
-export function hasGermanName(rec: Record<string, string | undefined>): boolean {
-  if (cleanField(rec.product_name_de, 120)) return true;
-  const lang = (rec.lang || rec.lc || '').trim().toLowerCase();
-  return lang === 'de' && !!cleanField(rec.product_name, 120);
+const HOUSE_BRANDS = [...new Set(RETAILERS.flatMap((r) => [...r.names, ...r.brands]).map(foldSearch).filter(Boolean))];
+
+/** Whether the brands name a German supermarket or one of its house brands (`RETAILERS`, e.g. Lidl, Milbona, ja!). */
+export function hasGermanBrand(rec: Record<string, string | undefined>): boolean {
+  return matchesAny(foldedParts(rec.brands || rec.brands_en || rec.brands_tags), HOUSE_BRANDS);
+}
+
+/** Whether the barcode was issued in Germany (GS1 Germany: prefixes 400–440). Shop-internal codes (starting with 2) don't count. */
+export function hasGermanBarcode(code: string | undefined): boolean {
+  let d = (code ?? '').replace(/\D/g, '');
+  if (d.length === 14) d = d.slice(1);
+  if (d.length !== 13 && d.length !== 8) return false;
+  const prefix = Number(d.slice(0, 3));
+  return prefix >= 400 && prefix <= 440;
+}
+
+/** Whether Germany is named as the origin or the place of manufacture. */
+export function madeInGermany(rec: Record<string, string | undefined>): boolean {
+  const parts = [...foldedParts(rec.origins_tags), ...foldedParts(rec.manufacturing_places_tags), ...foldedParts(rec.manufacturing_places)];
+  return parts.some((p) => p === 'germany' || p === 'deutschland' || p.endsWith(' deutschland') || p.endsWith(' germany'));
+}
+
+/** How many products each sign of Germany kept (the first that applies, in this order) in the `german` pack. */
+export interface PackKept {
+  barcode: number;
+  shop: number;
+  made_here: number;
+  scans: number;
+}
+
+/** How many products the `german` pack left out: no sign of Germany and fewer than FOREIGN_MIN_SCANS scans. */
+export interface PackRemoved {
+  not_german: number;
 }
 
 /**
- * Whether a product (already sold in Germany and passing `packRow`) goes into the `german` pack, or
- * which rule removes it: `not_seen_here` (German name, but fewer than GERMAN_MIN_SCANS scans and no
- * German shop), `no_german_name` (only a foreign name and fewer than FOREIGN_MIN_SCANS scans).
+ * Why a product (already sold in Germany and passing `packRow`) goes into the `german` pack, or
+ * `not_german`: a German barcode; a German shop in `stores` or a German supermarket or house brand;
+ * Germany as origin or place of manufacture; or at least FOREIGN_MIN_SCANS scans.
  */
-export function germanOnlyReason(rec: Record<string, string | undefined>, scans: number): 'keep' | keyof PackRemoved {
-  if (hasGermanName(rec)) return scans >= GERMAN_MIN_SCANS || hasGermanStore(rec.stores) ? 'keep' : 'not_seen_here';
-  return scans >= FOREIGN_MIN_SCANS ? 'keep' : 'no_german_name';
+export function germanOnlyReason(rec: Record<string, string | undefined>, scans: number): keyof PackKept | 'not_german' {
+  if (hasGermanBarcode(rec.code)) return 'barcode';
+  if (hasGermanStore(rec.stores) || hasGermanBrand(rec)) return 'shop';
+  if (madeInGermany(rec)) return 'made_here';
+  if (scans >= FOREIGN_MIN_SCANS) return 'scans';
+  return 'not_german';
 }
 
 /* ---------- Reading rows ---------- */
@@ -508,9 +540,12 @@ export function readCatalog(raw: unknown, publicKey: string, now = Date.now()): 
     if (!ok) throw new PackError('corrupt', 'pack fields');
     if ((e.bytes as number) > MAX_PACK_BYTES || (e.rows as number) > MAX_PACK_ROWS) throw new PackError('too_large');
     const r = (e.removed ?? {}) as Record<string, unknown>;
-    const removed = e.id === 'german' && count(r.no_german_name) !== undefined && count(r.not_seen_here) !== undefined
-      ? { no_german_name: r.no_german_name as number, not_seen_here: r.not_seen_here as number }
-      : undefined;
+    const k = (e.kept ?? {}) as Record<string, unknown>;
+    const removed = e.id === 'german' && count(r.not_german) !== undefined ? { not_german: r.not_german as number } : undefined;
+    const kept =
+      e.id === 'german' && (['barcode', 'shop', 'made_here', 'scans'] as const).every((x) => count(k[x]) !== undefined)
+        ? { barcode: k.barcode as number, shop: k.shop as number, made_here: k.made_here as number, scans: k.scans as number }
+        : undefined;
     found.set(e.id, {
       id: e.id,
       format: PACK_CATALOG_FORMAT,
@@ -523,6 +558,7 @@ export function readCatalog(raw: unknown, publicKey: string, now = Date.now()): 
       source,
       license,
       ...(removed ? { removed } : {}),
+      ...(kept ? { kept } : {}),
       ...(count(e.cut) !== undefined ? { cut: e.cut as number } : {}),
     });
   }

@@ -9,7 +9,6 @@ import { showAlert } from '../src/lib/alert';
 import { locale } from '../src/lib/dates';
 import {
   FOREIGN_MIN_SCANS,
-  GERMAN_MIN_SCANS,
   PACK_IDS,
   packChoice,
   PackError,
@@ -192,11 +191,18 @@ export default function OfflineDataScreen() {
             {rulesOpen ? (
               <View style={{ gap: 6 }}>
                 <Txt v="small">{t('pack_rules_all')}</Txt>
-                <Txt v="small">{t('pack_rules_german', { scans: GERMAN_MIN_SCANS, foreign: FOREIGN_MIN_SCANS })}</Txt>
-                {german?.removed ? (
+                <Txt v="small">{t('pack_rules_german', { foreign: FOREIGN_MIN_SCANS })}</Txt>
+                <Txt v="small" color={c.sub}>
+                  {t('pack_rules_note')}
+                </Txt>
+                {german?.removed || german?.kept ? (
                   <>
-                    <Txt v="small">• {t('pack_rules_removed_name', { foreign: FOREIGN_MIN_SCANS, n: count(german.removed.no_german_name) })}</Txt>
-                    <Txt v="small">• {t('pack_rules_removed_seen', { scans: GERMAN_MIN_SCANS, n: count(german.removed.not_seen_here) })}</Txt>
+                    {german.kept ? (
+                      <Txt v="small">
+                        • {t('pack_rules_kept', { barcode: count(german.kept.barcode), shop: count(german.kept.shop), made: count(german.kept.made_here), scans: count(german.kept.scans), foreign: FOREIGN_MIN_SCANS })}
+                      </Txt>
+                    ) : null}
+                    {german.removed ? <Txt v="small">• {t('pack_rules_removed', { foreign: FOREIGN_MIN_SCANS, n: count(german.removed.not_german) })}</Txt> : null}
                   </>
                 ) : !remote ? (
                   <Txt v="small" color={c.sub}>

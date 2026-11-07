@@ -154,7 +154,9 @@ import {
   fetchRemoteManifest,
   foldSearch,
   germanOnlyReason,
-  hasGermanName,
+  hasGermanBarcode,
+  hasGermanBrand,
+  madeInGermany,
   hasGermanStore,
   packChoice,
   PACK_CATALOG_URL,
@@ -3736,18 +3738,27 @@ test('offline packs: the German-products rules', () => {
   assert.equal(hasGermanStore('Carrefour, Leclerc'), false);
   assert.equal(hasGermanStore('Hitchcock market'), false); // "hit" only as a whole word
   assert.equal(hasGermanStore(undefined), false);
-  assert.equal(hasGermanName({ product_name_de: 'Joghurt' }), true);
-  assert.equal(hasGermanName({ product_name: 'Joghurt', lang: 'de' }), true);
-  assert.equal(hasGermanName({ product_name: 'Joghurt', lc: 'de' }), true);
-  assert.equal(hasGermanName({ product_name: 'Yaourt', lang: 'fr' }), false);
-  assert.equal(hasGermanName({ product_name_de: '   ', product_name: 'Yaourt' }), false);
-  // German name: 3 scans or a German shop
-  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt' }, 3), 'keep');
-  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt', stores: 'Edeka' }, 0), 'keep');
-  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt', stores: 'Carrefour' }, 2), 'not_seen_here');
-  // only a foreign name: 20 scans, a German shop doesn't help
-  assert.equal(germanOnlyReason({ product_name: 'Yaourt', lang: 'fr', stores: 'Rewe' }, 19), 'no_german_name');
-  assert.equal(germanOnlyReason({ product_name: 'Yaourt', lang: 'fr' }, 20), 'keep');
+  assert.equal(hasGermanBarcode('4000417025005'), true);
+  assert.equal(hasGermanBarcode('4400000000004'), true);
+  assert.equal(hasGermanBarcode('40084107'), true); // EAN-8
+  assert.equal(hasGermanBarcode('14000417025002'), true); // GTIN-14
+  assert.equal(hasGermanBarcode('3017620422003'), false); // France
+  assert.equal(hasGermanBarcode('20003197'), false); // shop-internal (Lidl)
+  assert.equal(hasGermanBarcode('012345678905'), false); // UPC-A
+  assert.equal(hasGermanBrand({ brands: 'Crownfield, Lidl' }), true);
+  assert.equal(hasGermanBrand({ brands: 'ja!' }), true);
+  assert.equal(hasGermanBrand({ brands_tags: 'xx:milbona' }), true);
+  assert.equal(hasGermanBrand({ brands: 'Loacker' }), false);
+  assert.equal(madeInGermany({ origins_tags: 'en:germany' }), true);
+  assert.equal(madeInGermany({ manufacturing_places: 'Hamburg, Deutschland' }), true);
+  assert.equal(madeInGermany({ manufacturing_places: 'Italia' }), false);
+  // the first sign that applies; nothing → removed unless scanned often
+  assert.equal(germanOnlyReason({ code: '4000417025005' }, 0), 'barcode');
+  assert.equal(germanOnlyReason({ code: '20003197', brands: 'Lidl' }, 0), 'shop');
+  assert.equal(germanOnlyReason({ code: '3017620422003', stores: 'Edeka' }, 0), 'shop');
+  assert.equal(germanOnlyReason({ code: '8000380003723', origins_tags: 'en:germany' }, 0), 'made_here');
+  assert.equal(germanOnlyReason({ code: '8000380003723', brands: 'Loacker' }, 20), 'scans');
+  assert.equal(germanOnlyReason({ code: '8000380003723', brands: 'Loacker', stores: 'Carrefour' }, 19), 'not_german');
 });
 
 function signedCatalog(privateKey: KeyObject, packs: { id: string; text: string; extra?: Record<string, unknown> }[], over: Record<string, unknown> = {}) {
@@ -3774,15 +3785,17 @@ test('offline packs: the signed list of both packs, and older manifests still re
   const now = Date.parse('2026-11-09T12:00:00Z');
   const allText = packText();
   const germanText = `${allText.split('\n').slice(0, 3).join('\n')}\n`;
-  const removed = { no_german_name: 1, not_seen_here: 0 };
+  const removed = { not_german: 1 };
+  const kept = { barcode: 2, shop: 1, made_here: 0, scans: 0 };
   const env = signedCatalog(privateKey, [
     { id: 'all', text: allText },
-    { id: 'german', text: germanText, extra: { removed } },
+    { id: 'german', text: germanText, extra: { removed, kept } },
     { id: 'vegan', text: allText }, // a later builder's pack: ignored
   ]);
   const cat = readCatalog(JSON.parse(env), key, now);
   assert.deepEqual(cat.packs.map((p) => [p.id, p.rows]), [['german', 3], ['all', 4]]);
   assert.deepEqual(cat.packs[0].removed, removed);
+  assert.deepEqual(cat.packs[0].kept, kept);
   assert.equal(cat.packs[1].removed, undefined);
   assert.equal(cat.passed, 4);
   const reason = (fn: () => unknown) => {
