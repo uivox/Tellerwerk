@@ -11,6 +11,7 @@ import { hideFromHistory, normalizeHidden, type HiddenFood } from './foodHistory
 import { DEFAULT_LAYOUT, normalizeLayout } from './layout';
 import { normalizePending, type OffPending } from './offWrite';
 import { addCheck, normalizeChecks, pruneChecks, type OffCheck } from './offSuggest';
+import { isPackId, type PackId } from './packIds';
 import { entriesForMeal, removeFoodFromMeals, replaceFoodInMeals } from './meals';
 import { migrateState, STORE_VERSION } from './migrations';
 import { DEFAULT_REMINDERS, normalizeReminders, type ReminderPrefs } from './reminders';
@@ -69,6 +70,8 @@ interface State {
   offChecks: OffCheck[];
   /** Own foods hidden with *Don't suggest this* on *Not on Open Food Facts yet*. Part of backups. */
   offHidden: HiddenFood[];
+  /** Which offline pack the user chose (Profile → Offline product data); null until they choose. Part of backups. */
+  packChoice: PackId | null;
   /** Weekly goal check-in: settings, left-out days, answered check-ins and the goal history (adaptiveGoal.ts). Part of backups. */
   goalCheck: GoalCheckPrefs;
   /** App lock, encrypted backups, connection log (security.ts). Per device, never in backups. */
@@ -122,6 +125,7 @@ interface State {
   noteOffCheck: (c: OffCheck) => void;
   hideOffSuggestion: (foodId: string) => void;
   unhideOffSuggestion: (foodId: string) => void;
+  setPackChoice: (id: PackId) => void;
   setReminders: (patch: Partial<ReminderPrefs>) => void;
   setProviderConfig: (id: AIProviderId, patch: Partial<AIProviderConfig>) => void;
   setGoalCheck: (patch: Partial<GoalCheckPrefs>) => void;
@@ -159,6 +163,7 @@ type Persisted = Pick<
   | 'offPending'
   | 'offChecks'
   | 'offHidden'
+  | 'packChoice'
   | 'goalCheck'
   | 'security'
   | 'connections'
@@ -188,6 +193,7 @@ const initial = {
   offPending: [] as OffPending[],
   offChecks: [] as OffCheck[],
   offHidden: [] as HiddenFood[],
+  packChoice: null as PackId | null,
   goalCheck: DEFAULT_GOAL_CHECK,
   security: DEFAULT_SECURITY,
   connections: [] as ConnectionRecord[],
@@ -314,6 +320,7 @@ export const useStore = create<State>()(
       noteOffCheck: (c) => set((s) => ({ offChecks: addCheck(s.offChecks, c) })),
       hideOffSuggestion: (foodId) => set((s) => ({ offHidden: hideFromHistory(s.offHidden, foodId, Date.now()) })),
       unhideOffSuggestion: (foodId) => set((s) => ({ offHidden: s.offHidden.filter((h) => h.id !== foodId) })),
+      setPackChoice: (id) => set({ packChoice: id }),
       setReminders: (patch) => set((s) => ({ reminders: normalizeReminders({ ...s.reminders, ...patch }) })),
       setProviderConfig: (id, patch) =>
         set((s) => ({ ai: { ...s.ai, providers: { ...s.ai.providers, [id]: { ...s.ai.providers[id], ...patch } } } })),
@@ -344,6 +351,8 @@ export const useStore = create<State>()(
           // results stay valid only for imported foods with the same values (offSuggest.foodSignature)
           offChecks: pruneChecks(s.offChecks, d.customFoods ?? []),
           offHidden: normalizeHidden(d.offHidden),
+          // a backup without a choice keeps this device's
+          packChoice: isPackId(d.packChoice) ? d.packChoice : s.packChoice,
           // Only model names come from the file; providers and server addresses stay as set on this
           // device, so a backup can never redirect a saved API key (see sanitizeImportedAI).
           ai: sanitizeImportedAI(d.ai, s.ai),
@@ -383,6 +392,7 @@ export const useStore = create<State>()(
         offPending: s.offPending,
         offChecks: s.offChecks,
         offHidden: s.offHidden,
+        packChoice: s.packChoice,
         goalCheck: s.goalCheck,
         security: s.security,
         connections: s.connections,
@@ -407,6 +417,7 @@ export const useStore = create<State>()(
           offPending: normalizePending(p.offPending),
           offChecks: normalizeChecks(p.offChecks),
           offHidden: normalizeHidden(p.offHidden),
+          packChoice: isPackId(p.packChoice) ? p.packChoice : null,
           goalCheck: normalizeGoalCheck(p.goalCheck),
           hiddenHistory: normalizeHidden(p.hiddenHistory),
           security: normalizeSecurity(p.security),
