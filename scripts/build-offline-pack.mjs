@@ -81,6 +81,8 @@ function handleLine(raw) {
   if (!header) {
     header = raw.split('\t');
     for (const c of COLUMNS) idx[c] = header.indexOf(c);
+    // A dry run lists the columns the filter could use, so a rule change can be checked against the real export.
+    if (dryRun) console.log(`Columns about names, languages, shops and scans: ${header.filter((h) => /name|lang|lc$|^lc|store|scan|countr|origin|manufactur/i.test(h)).join(', ')}`);
     for (const required of ['code', 'product_name', 'countries_tags', 'proteins_100g', 'carbohydrates_100g', 'fat_100g']) {
       if (idx[required] === -1) {
         console.error(`The export has no "${required}" column; its format changed.`);
@@ -306,3 +308,4 @@ const report = [
 mkdirSync(reportDir, { recursive: true });
 writeFileSync(join(reportDir, 'report.md'), `${report.join('\n')}\n`);
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report.join('\n')}\n`);
+if (dryRun) console.log(report.join('\n'));
