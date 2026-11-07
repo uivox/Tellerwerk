@@ -2827,24 +2827,24 @@ function fakeOff(status: number, body: string | object, record: { url: string; i
   return { impl, record };
 }
 const form = (init: RequestInit) => new URLSearchParams(String(init.body));
-const login = { user: 'louis', password: 'pä ss&=', uuid: 'abc' };
+const login = { user: 'test-user', password: 'pä ss&=', uuid: 'abc' };
 
 test('open food facts: sign-in check', async () => {
-  const ok = fakeOff(200, { status: 1, status_verbose: 'user signed-in', user_id: 'louis' });
-  assert.deepEqual(await checkOffLogin(' louis@example.org ', 'pw', ok.impl), { ok: true, user: 'louis' });
+  const ok = fakeOff(200, { status: 1, status_verbose: 'user signed-in', user_id: 'test-user' });
+  assert.deepEqual(await checkOffLogin(' user@example.org ', 'pw', ok.impl), { ok: true, user: 'test-user' });
   const sent = form(ok.record[0].init);
   assert.equal(ok.record[0].url, 'https://world.openfoodfacts.org/cgi/auth.pl');
-  assert.equal(sent.get('user_id'), 'louis@example.org');
+  assert.equal(sent.get('user_id'), 'user@example.org');
   assert.equal(sent.get('no_log'), '1'); // no extra login session per request
   assert.deepEqual(await checkOffLogin('x', 'y', fakeOff(403, { status: 0, status_verbose: 'user not signed-in' }).impl), { ok: false, reason: 'wrong' });
   assert.deepEqual(await checkOffLogin('x', 'y', async () => { throw new TypeError('Failed to fetch'); }), { ok: false, reason: 'offline' });
   assert.deepEqual(await checkOffLogin('x', 'y', fakeOff(503, 'busy').impl), { ok: false, reason: 'busy' });
   // the test server needs its basic auth
-  const staging = fakeOff(200, { status: 1, user_id: 'louis' });
-  await checkOffLogin('louis', 'pw', staging.impl, OFF_STAGING);
+  const staging = fakeOff(200, { status: 1, user_id: 'test-user' });
+  await checkOffLogin('test-user', 'pw', staging.impl, OFF_STAGING);
   assert.equal(staging.record[0].url, 'https://world.openfoodfacts.net/cgi/auth.pl');
   assert.equal((staging.record[0].init.headers as Record<string, string>).Authorization, 'Basic b2ZmOm9mZg==');
-  assert.equal(parseOffLogin(JSON.stringify(login))?.user, 'louis');
+  assert.equal(parseOffLogin(JSON.stringify(login))?.user, 'test-user');
   assert.equal(parseOffLogin('{"user":"x"}'), null);
   assert.equal(parseOffLogin('nope'), null);
   assert.equal(newAppUuid(() => '1B4E28BA-2FA1-11D2-883F-0016D3CCA427'), '1b4e28ba2fa111d2883f0016d3cca427');

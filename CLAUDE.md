@@ -26,6 +26,7 @@ Every change is checked against these three, and every pull request description 
 - **Outside data** (Open Food Facts, Robotoff, AI answers, label photos, backups) goes through the plausibility checks in `labelScan.ts` / `openFoodFacts.ts` and is shown to the user before it is saved.
 - **Open Food Facts fair use:** search only when the user submits, at most 8 searches a minute, no second search endpoint after a 4xx answer. A 429 pauses searches and barcode lookups for at least a minute (`notePause`). A 404 for an unknown product is a normal answer ("not found"), never a failure and never a reason to pause.
 - **Network:** every request goes through the global `fetch` (or a `fetchImpl` that defaults to it), which the connection log wraps at start. A connection that can't use fetch (a native download, an image view) calls `noteUrl` / `noteRemoteImage`; a test fails on `XMLHttpRequest`, WebSockets and new native downloads. A new server also needs a purpose in `connectionLog.ts` (`purposeFor`, `SERVERS`) and a line on the *Your data* screen.
+- **No personal names:** code, tests, docs, commit messages and pull requests never name a person. Write neutrally (“the maintainer”, “decided in review”) and use placeholders in test data (`test-user`, `user@example.org`).
 - **Route params:** pass on only the params a screen actually has (`meal`, `date`, `pick`, `barcode`), never empty strings; `flowParams` in `barcodeFlow.ts` does that.
 
 ### Web version
