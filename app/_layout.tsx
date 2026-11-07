@@ -123,6 +123,7 @@ export default function RootLayout() {
         <Stack.Screen name="insight" options={{ title: t('tab_progress') }} />
         <Stack.Screen name="off-account" options={{ title: t('off_title') }} />
         <Stack.Screen name="off-send" options={{ title: t('off_send_title') }} />
+        <Stack.Screen name="off-suggest" options={{ title: t('off_suggest_title') }} />
         <Stack.Screen name="streak" options={{ title: t('streak_title') }} />
         <Stack.Screen name="appearance" options={{ title: t('appearance') }} />
         <Stack.Screen name="recipe" options={{ title: t('tab_recipes') }} />

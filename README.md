@@ -61,6 +61,7 @@ No account. Your data stays on your device.
 - **Diary:** swipe sideways to the previous or next day (also with the mouse in the web version), plan days ahead, and fold meals down to one line.
 - **Recipes tab:** your own recipes (photo, servings, steps, ingredients from the food search; nutrition calculated from the ingredients) and community recipes added through pull requests and marked as tested once someone else has cooked them ([how to add one](docs/RECIPES.md)). Log a serving with one tap.
 - **Send your foods to Open Food Facts** (Profile → *Open Food Facts*): sign in with your own Open Food Facts account, then *Send to Open Food Facts* on any of your own foods. You see exactly what would be sent first: for a product Open Food Facts already has, only the values that differ (old → new; its name and brand are never overwritten), plus an optional photo of the nutrition table. Bakery or market items without a barcode work too; add the shop as the brand and Open Food Facts gives them their own code. Without a connection you can keep a send for later and send it yourself when you're back online.
+- **Not on Open Food Facts yet** (Profile → *Open Food Facts*): a list of your own foods that others can't find there yet. *Check with Open Food Facts* looks up their barcodes (only when you tap it, one a second) and shows which are missing there and which values differ. Open one to send it through the same preview; *Don't suggest this* (the eye) hides home-made foods, and you can undo it on the same screen.
 
 </details>
 

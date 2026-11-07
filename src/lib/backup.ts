@@ -59,6 +59,8 @@ export interface BackupData {
   goalCheck?: GoalCheckPrefs;
   /** Foods removed from the history on the *Recent* tab; optional (older exports have none). */
   hiddenHistory?: HiddenFood[];
+  /** Own foods hidden from *Not on Open Food Facts yet*; optional (older exports have none). */
+  offHidden?: HiddenFood[];
 }
 
 const BACKUP_KEYS: (keyof BackupData)[] = [
@@ -80,6 +82,7 @@ const BACKUP_KEYS: (keyof BackupData)[] = [
   'fastingSchedule',
   'goalCheck',
   'hiddenHistory',
+  'offHidden',
 ];
 
 /** Picks exactly the exported fields from the app state (which also holds functions and UI settings). */
@@ -374,6 +377,7 @@ export function parseBackupReport(input: string, now = new Date()): BackupReport
     fastingSchedule: isObj(raw.fastingSchedule) ? normalizeSchedule(raw.fastingSchedule) : undefined,
     goalCheck: isObj(raw.goalCheck) ? normalizeGoalCheck(raw.goalCheck) : undefined,
     hiddenHistory: Array.isArray(raw.hiddenHistory) ? normalizeHidden(raw.hiddenHistory) : undefined,
+    offHidden: Array.isArray(raw.offHidden) ? normalizeHidden(raw.offHidden) : undefined,
     recipes: uniqueById(keep(raw.recipes, sanitizeRecipe, counter)),
     meals: uniqueById(keep(raw.meals, sanitizeMeal, counter)),
   };

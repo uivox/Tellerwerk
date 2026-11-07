@@ -828,6 +828,59 @@ async function run(scheme) {
       await page.getByRole('tab', { name: 'Diary' }).click();
       await btn('Add food: Snacks').waitFor();
     });
+    await step('open food facts: “Not on Open Food Facts yet” checks only on a tap and hides foods', async () => {
+      await routeOff();
+      const lookups = [];
+      page.on('request', (r) => {
+        if (r.url().startsWith('https://world.openfoodfacts.org/api/v2/product/')) lookups.push(r.url());
+      });
+      const before = writes.length;
+      delete offProduct['4006446005476']; // first: Open Food Facts doesn't have the nougat cream
+      await page.getByRole('tab', { name: 'Profile' }).click();
+      // both foods were just sent, so neither is suggested
+      await text('Open Food Facts', { exact: true }).click();
+      await page.getByRole('button', { name: /Not on Open Food Facts yet \(0\)/ }).filter({ visible: true }).first().waitFor();
+      await page.goBack();
+      // editing a food makes it “not checked” again
+      await text('My foods & meals', { exact: true }).click();
+      await text(/^Tap an item to edit it/).waitFor();
+      await page.getByRole('button', { name: /Smoke nougat cream.*kcal \/ 100 g/ }).filter({ visible: true }).first().click();
+      await page.locator('input').filter({ visible: true }).and(page.locator('input[value="560"]')).first().fill('565');
+      await btn('Save').click();
+      await text('565 kcal / 100 g', { exact: false }).waitFor();
+      await page.goBack();
+      await text('Open Food Facts', { exact: true }).click();
+      await page.getByRole('button', { name: /Not on Open Food Facts yet \(1\)/ }).filter({ visible: true }).first().click();
+      await text(/^Your own foods that Open Food Facts doesn’t have yet/).waitFor();
+      await page.getByRole('button', { name: /Smoke nougat cream.*Not checked/ }).filter({ visible: true }).first().waitFor();
+      // the pretzel was just sent, so it counts as the same and is left out
+      await text(/Already on Open Food Facts with the same values: [1-9]/).waitFor();
+      if (await page.getByRole('button', { name: /Smoke pretzel.*(Not checked|different there|Not on)/ }).filter({ visible: true }).count()) throw new Error('a food just sent is still suggested');
+      if (lookups.length) throw new Error(`looked up before the tap: ${lookups}`);
+      await btn('Check with Open Food Facts').click();
+      await text(/^Checked \d+ of \d+\./).waitFor({ timeout: 60_000 });
+      await page.getByRole('button', { name: /Smoke nougat cream.*Not on Open Food Facts/ }).filter({ visible: true }).first().waitFor();
+      if (!lookups.some((u) => u.includes('4006446005476'))) throw new Error('the nougat cream was not looked up');
+      // now Open Food Facts has it with another kcal value
+      offProduct['4006446005476'] = { code: '4006446005476', product_name: 'Nuss-Nougat-Creme', brands: 'Smoke Brand', nutriments: { 'energy-kcal_100g': 556 } };
+      await btn('Check with Open Food Facts').click();
+      await page.getByRole('button', { name: /Smoke nougat cream.*Missing or different there: Energy/ }).filter({ visible: true }).first().waitFor({ timeout: 60_000 });
+      if (writes.length !== before) throw new Error('checking sent something');
+      // Don't suggest this, then undo it on the same screen; the hidden list is saved
+      await page.getByRole('button', { name: 'Don’t suggest “Smoke nougat cream”' }).filter({ visible: true }).first().click();
+      await text(/Not suggested \(1\)/).waitFor();
+      await page.waitForTimeout(800); // let the save finish
+      const main = JSON.parse((await idbGet('openplate-v1')) ?? '{}');
+      if (main.state?.offHidden?.length !== 1) throw new Error('the hidden food was not saved');
+      await page.getByRole('button', { name: 'Suggest “Smoke nougat cream” again' }).filter({ visible: true }).first().click();
+      await page.getByRole('button', { name: /Smoke nougat cream.*different there/ }).filter({ visible: true }).first().click();
+      // the usual preview opens, with what would be sent
+      await text('556 kcal → 565 kcal').waitFor();
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      for (let i = 0; i < 6 && !(await page.getByRole('tab', { name: 'Diary' }).isVisible()); i++) await page.goBack();
+      await page.getByRole('tab', { name: 'Diary' }).click();
+      await btn('Add food: Snacks').waitFor();
+    });
     await step('appearance: the app icon choice explains why the browser can’t change it', async () => {
       await page.getByRole('tab', { name: 'Profile' }).click();
       await text('Appearance', { exact: true }).click();

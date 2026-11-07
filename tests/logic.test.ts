@@ -170,6 +170,7 @@ import { dragOffset, isSideways, swipeResult } from '../src/lib/daySwipe';
 import { buildBars, daysBetween, fastingByDay, foodByDay, formatDateInput, macroKcal, macroPercents, normalizeInsights, parseDateInput, periods, rangeBounds, summarize, weekStart } from '../src/lib/insights';
 import { migrateState, OLD_LOCAL_DEFAULT_URL } from '../src/lib/migrations';
 import { changesFor, checkForSending, checkOffLogin, codeFor, newAppUuid, normalizePending, OFF_STAGING, parseOffLogin, sendToOff, snapshotFromOff, uploadOffPhoto, writeFields } from '../src/lib/offWrite';
+import { addCheck, checkFoods, compareWithOff, foodSignature, foodsToCheck, lookupCode, normalizeChecks, pruneChecks, suggestions, type OffCheck } from '../src/lib/offSuggest';
 import { goalStatus, minHealthyWeight } from '../src/lib/nutrition';
 import { MEALS, type AISettings, type DiaryEntry, type FastingSession, type Food, type MealType, type Profile } from '../src/lib/types';
 
@@ -3509,6 +3510,11 @@ test('food history: removing hides a food until it is logged again; the hidden l
   assert.deepEqual(parseBackup(JSON.stringify(exported)).hiddenHistory, hidden);
   assert.equal(parseBackup(JSON.stringify({ app: 'OpenPlate' })).hiddenHistory, undefined);
   assert.deepEqual(parseBackup(JSON.stringify({ app: 'OpenPlate', hiddenHistory: [{ id: 'x', at: 1, evil: '<script>' }] })).hiddenHistory, [{ id: 'x', at: 1 }]);
+  // foods hidden from *Not on Open Food Facts yet* travel the same way
+  const offHidden = [{ id: 'own-1', at: 7 }];
+  const withOff = JSON.parse(JSON.stringify(buildBackup({ ...parseBackup(JSON.stringify({ app: 'OpenPlate' })), offHidden })));
+  assert.deepEqual(parseBackup(JSON.stringify(withOff)).offHidden, offHidden);
+  assert.equal(parseBackup(JSON.stringify({ app: 'OpenPlate' })).offHidden, undefined);
 });
 
 test('food history: the filter matches every word in name or brand', () => {
@@ -3583,4 +3589,131 @@ test('open food facts: Load more asks for the next page, counts toward the limit
   assert.equal(hasMorePages(3, 40, 40, 120), false);
   assert.equal(hasMorePages(1, 40, 0, 500), false);
   _resetSearchState();
+});
+
+/* ---------- Not on Open Food Facts yet (offSuggest.ts) ---------- */
+
+const ownFood = (id: string, extra: Partial<import('../src/lib/types').Food> = {}): import('../src/lib/types').Food => ({
+  id,
+  source: 'custom',
+  name: `Food ${id}`,
+  per100: { kcal: 200, protein: 5, carbs: 30, fat: 6 },
+  servings: [],
+  ...extra,
+});
+
+test('off suggest: which own foods can be checked, and with which code', () => {
+  assert.equal(lookupCode(ownFood('a', { barcode: '4006446005476' })), '4006446005476');
+  assert.equal(lookupCode(ownFood('b', { offCode: '2000000000123' })), '2000000000123');
+  assert.equal(lookupCode(ownFood('c', { barcode: '4006 4460 05476' })), '4006446005476');
+  assert.equal(lookupCode(ownFood('d')), null);
+  assert.equal(lookupCode(ownFood('e', { barcode: 'abc' })), null);
+});
+
+test('off suggest: the list before any check, after a check and when the food changed', () => {
+  const withCode = ownFood('a', { barcode: '4006446005476', name: 'Bravo' });
+  const bakery = ownFood('b', { name: 'Alpha pretzel', brand: 'Bakery' });
+  let list = suggestions([withCode, bakery], [], []);
+  assert.deepEqual(list.items.map((s) => [s.food.id, s.status]), [['b', 'no_code'], ['a', 'unchecked']]);
+  assert.equal(list.checkable, 1);
+
+  // Open Food Facts has it with another kcal value
+  const off = { name: 'Bravo', brand: 'X', serving: '1 g', per100: { kcal: 190, protein: 5, carbs: 30, fat: 6 } };
+  const differs = compareWithOff(withCode, off, 100);
+  assert.equal(differs.result, 'differs');
+  assert.deepEqual(differs.fields, ['kcal']);
+  list = suggestions([withCode, bakery], [differs], []);
+  assert.deepEqual(list.items.map((s) => [s.food.id, s.status]), [['a', 'differs'], ['b', 'no_code']]);
+  assert.equal(list.items[0].checkedAt, 100);
+
+  // the same values: left out of the list, counted
+  const same = compareWithOff(withCode, { ...off, per100: { kcal: 200, protein: 5, carbs: 30, fat: 6 } }, 200);
+  assert.equal(same.result, 'same');
+  list = suggestions([withCode, bakery], [same], []);
+  assert.deepEqual(list.items.map((s) => s.food.id), ['b']);
+  assert.equal(list.same, 1);
+
+  // editing the food makes it "not checked" again
+  const edited = { ...withCode, per100: { ...withCode.per100, kcal: 210 } };
+  assert.notEqual(foodSignature(edited), foodSignature(withCode));
+  assert.equal(suggestions([edited], [same], []).items[0].status, 'unchecked');
+
+  // not on Open Food Facts at all
+  assert.equal(compareWithOff(withCode, null, 1).result, 'missing');
+});
+
+test('off suggest: hidden foods leave the list, are listed apart and are not checked', () => {
+  const a = ownFood('a', { barcode: '4006446005476' });
+  const b = ownFood('b', { barcode: '3017620422003' });
+  const c = ownFood('c');
+  const hidden = [{ id: 'c', at: 5 }, { id: 'a', at: 9 }];
+  const list = suggestions([a, b, c], [], hidden);
+  assert.deepEqual(list.items.map((s) => s.food.id), ['b']);
+  assert.deepEqual(list.hidden.map((s) => s.food.id), ['a', 'c']);
+  assert.deepEqual(foodsToCheck([a, b, c], [], hidden).map((f) => f.id), ['b']);
+  // a hidden food that turns out to be the same is simply counted
+  assert.equal(suggestions([a], [compareWithOff(a, { per100: { kcal: 200, protein: 5, carbs: 30, fat: 6 }, name: 'n', brand: 'b' }, 1)], hidden).hidden.length, 0);
+});
+
+test('off suggest: stored check results are checked and pruned', () => {
+  const rows = normalizeChecks([
+    { foodId: 'a', sig: 's', at: 1, result: 'differs', fields: ['kcal', 'evil', 'salt'] },
+    { foodId: 'a', sig: 's', at: 2, result: 'same' },
+    { foodId: 'b', sig: 's', at: 'x', result: 'missing' },
+    { foodId: 'c', sig: 's', result: 'nope' },
+    null,
+    'x',
+  ]);
+  assert.deepEqual(rows, [
+    { foodId: 'a', sig: 's', at: 1, result: 'differs', fields: ['kcal', 'salt'] },
+    { foodId: 'b', sig: 's', at: 0, result: 'missing' },
+  ]);
+  assert.deepEqual(normalizeChecks('x'), []);
+  const next = addCheck(rows, { foodId: 'b', sig: 't', at: 3, result: 'same' });
+  assert.deepEqual(next.map((r) => [r.foodId, r.result]), [['b', 'same'], ['a', 'differs']]);
+  assert.deepEqual(pruneChecks(next, [ownFood('a')]).map((r) => r.foodId), ['a']);
+});
+
+test('off suggest: checking looks foods up one by one, paced, and stops on a rate limit', async () => {
+  const foods = ['4006446005476', '3017620422003', '5000159407236', '4000417025005'].map((code, i) => ownFood(`f${i}`, { barcode: code }));
+  const asked: string[] = [];
+  const waits: number[] = [];
+  const results: OffCheck[] = [];
+  const known: Record<string, { per100: Record<string, number> } | 'rate'> = { '3017620422003': { per100: { kcal: 200, protein: 5, carbs: 30, fat: 6 } }, '5000159407236': 'rate' };
+  const lookup = async (code: string) => {
+    asked.push(code);
+    const k = known[code];
+    if (k === 'rate') throw new HttpError(429);
+    return k ? { ...k, name: 'n', brand: 'b' } : null;
+  };
+  const run = await checkFoods(foods, lookup, lookupFailure, (c) => results.push(c), { sleep: async (ms) => void waits.push(ms), now: () => 7 });
+  assert.deepEqual(run, { checked: 2, left: 2, stopped: 'rate_limited' });
+  assert.deepEqual(asked, ['4006446005476', '3017620422003', '5000159407236']); // nothing after the 429
+  assert.deepEqual(waits, [1000, 1000]);
+  assert.deepEqual(results.map((r) => [r.foodId, r.result, r.at]), [['f0', 'missing', 7], ['f1', 'same', 7]]);
+
+  // the pause it started also stops the next run before anything is sent
+  const paused = await checkFoods(foods, async () => {
+    throw new RateLimitedError();
+  }, lookupFailure, () => {}, { sleep: async () => {} });
+  assert.equal(paused.stopped, 'rate_limited');
+  assert.equal(paused.checked, 0);
+
+  // no connection stops; a refused barcode is skipped; cancelling stops between lookups
+  const offline = await checkFoods(foods, async () => {
+    throw new TypeError('Failed to fetch');
+  }, lookupFailure, () => {}, { sleep: async () => {} });
+  assert.deepEqual(offline, { checked: 0, left: 4, stopped: 'offline' });
+  let n = 0;
+  const skipped = await checkFoods(foods.slice(0, 2), async () => {
+    if (n++ === 0) throw new InvalidBarcodeError('not_digits');
+    return null;
+  }, lookupFailure, () => {}, { sleep: async () => {} });
+  assert.deepEqual(skipped, { checked: 1, left: 0 });
+  let stop = false;
+  const cancelled = await checkFoods(foods, async () => {
+    stop = true;
+    return null;
+  }, lookupFailure, () => {}, { sleep: async () => {}, cancelled: () => stop });
+  assert.deepEqual(cancelled, { checked: 1, left: 3, stopped: 'cancelled' });
 });

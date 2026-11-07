@@ -8,6 +8,7 @@ import { saveOffLogin, useOffLogin } from '../src/components/offLogin';
 import { Banner, Button, Card, Divider, Field, ListRow, Row, Screen, SectionTitle, Txt } from '../src/components/ui';
 import { showAlert } from '../src/lib/alert';
 import { dayKey, formatShortDate } from '../src/lib/dates';
+import { suggestions } from '../src/lib/offSuggest';
 import { checkOffLogin, newAppUuid, OFF_SERVER, OFF_STAGING, offSignupUrl, type LoginOutcome } from '../src/lib/offWrite';
 import { useStore } from '../src/lib/store';
 import { useColors } from '../src/lib/theme';
@@ -24,6 +25,9 @@ export default function OffAccountScreen() {
   const pending = useStore((s) => s.offPending);
   const foods = useStore((s) => s.customFoods);
   const dropOffPending = useStore((s) => s.dropOffPending);
+  const checks = useStore((s) => s.offChecks);
+  const offHidden = useStore((s) => s.offHidden);
+  const toSend = suggestions(foods, checks, offHidden).items.length;
   const [user, setUser] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -95,6 +99,16 @@ export default function OffAccountScreen() {
         </Card>
       )}
       <Txt v="small">{t('off_privacy')}</Txt>
+
+      <Card style={{ gap: 0 }}>
+        <ListRow
+          icon="sparkles-outline"
+          title={`${t('off_suggest_row')} (${toSend})`}
+          subtitle={t('off_suggest_row_text')}
+          right={<Ionicons name="chevron-forward" size={18} color={c.sub} />}
+          onPress={() => router.push('/off-suggest')}
+        />
+      </Card>
 
       <SectionTitle>{t('off_waiting', { n: waiting.length })}</SectionTitle>
       <Card style={{ gap: 0 }}>

@@ -24,6 +24,7 @@ import {
   type OffSnapshot,
   type SendFailure,
 } from '../src/lib/offWrite';
+import { foodSignature } from '../src/lib/offSuggest';
 import { fetchProductForEdit, lookupFailure } from '../src/lib/openFoodFacts';
 import { useStore } from '../src/lib/store';
 import { useColors } from '../src/lib/theme';
@@ -53,6 +54,7 @@ export default function OffSendScreen() {
   const updateCustomFood = useStore((s) => s.updateCustomFood);
   const keepOffForLater = useStore((s) => s.keepOffForLater);
   const dropOffPending = useStore((s) => s.dropOffPending);
+  const noteOffCheck = useStore((s) => s.noteOffCheck);
   const pending = useStore((s) => s.offPending.some((p) => p.foodId === params.fid));
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
@@ -105,13 +107,19 @@ export default function OffSendScreen() {
     if (!login || !canSend || off === undefined) return;
     setPhase({ kind: 'sending', off });
     let target = code;
+    let sentFood = food;
     if (changes.length > 0) {
       const r = await sendToOff(writeFields(code, food, changes, lang, APP_VERSION), login);
       if (!r.ok) return setPhase({ kind: 'failed', reason: r.reason, detail: r.detail, off });
       target = r.code;
       // A product without barcode keeps the code Open Food Facts gave it, so the next send corrects it.
-      if (code === 'new' && r.code !== 'new') updateCustomFood({ ...food, offCode: r.code });
+      if (code === 'new' && r.code !== 'new') {
+        sentFood = { ...food, offCode: r.code };
+        updateCustomFood(sentFood);
+      }
     }
+    // Open Food Facts now has these values, so *Not on Open Food Facts yet* leaves the food out.
+    noteOffCheck({ foodId: food.id, sig: foodSignature(sentFood), at: Date.now(), result: 'same' });
     let photoProblem: string | undefined;
     if (photo && target !== 'new') {
       const up = await uploadOffPhoto(target, lang, login, (f, field) => appendPhoto(f, field, photo));
