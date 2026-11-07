@@ -150,8 +150,16 @@ import { draftProblem } from '../src/lib/validation';
 import { createHash, generateKeyPairSync, randomBytes, sign as edSign, type KeyObject } from 'node:crypto';
 import { base64ToBytes, sha512, toHex, utf8, verifyEd25519 } from '../src/lib/ed25519';
 import {
+  fetchRemoteCatalog,
   fetchRemoteManifest,
   foldSearch,
+  germanOnlyReason,
+  hasGermanName,
+  hasGermanStore,
+  packChoice,
+  PACK_CATALOG_URL,
+  readCatalog,
+  remotePack,
   foodFromPackLine,
   installPack,
   openInstalled,
@@ -3716,4 +3724,135 @@ test('off suggest: checking looks foods up one by one, paced, and stops on a rat
     return null;
   }, lookupFailure, () => {}, { sleep: async () => {}, cancelled: () => stop });
   assert.deepEqual(cancelled, { checked: 1, left: 3, stopped: 'cancelled' });
+});
+
+
+/* ---------- Two offline packs (PR K) ---------- */
+
+test('offline packs: the German-products rules', () => {
+  assert.equal(hasGermanStore('Rewe, Carrefour'), true);
+  assert.equal(hasGermanStore('Aldi Süd'), true);
+  assert.equal(hasGermanStore('Müller Drogerie'), true);
+  assert.equal(hasGermanStore('Carrefour, Leclerc'), false);
+  assert.equal(hasGermanStore('Hitchcock market'), false); // "hit" only as a whole word
+  assert.equal(hasGermanStore(undefined), false);
+  assert.equal(hasGermanName({ product_name_de: 'Joghurt' }), true);
+  assert.equal(hasGermanName({ product_name: 'Joghurt', lang: 'de' }), true);
+  assert.equal(hasGermanName({ product_name: 'Joghurt', lc: 'de' }), true);
+  assert.equal(hasGermanName({ product_name: 'Yaourt', lang: 'fr' }), false);
+  assert.equal(hasGermanName({ product_name_de: '   ', product_name: 'Yaourt' }), false);
+  // German name: 3 scans or a German shop
+  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt' }, 3), 'keep');
+  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt', stores: 'Edeka' }, 0), 'keep');
+  assert.equal(germanOnlyReason({ product_name_de: 'Joghurt', stores: 'Carrefour' }, 2), 'not_seen_here');
+  // only a foreign name: 20 scans, a German shop doesn't help
+  assert.equal(germanOnlyReason({ product_name: 'Yaourt', lang: 'fr', stores: 'Rewe' }, 19), 'no_german_name');
+  assert.equal(germanOnlyReason({ product_name: 'Yaourt', lang: 'fr' }, 20), 'keep');
+});
+
+function signedCatalog(privateKey: KeyObject, packs: { id: string; text: string; extra?: Record<string, unknown> }[], over: Record<string, unknown> = {}) {
+  const catalog = {
+    format: 2,
+    country: 'de',
+    created: '2026-11-09T03:20:00.000Z',
+    source: 'Open Food Facts',
+    license: 'ODbL 1.0',
+    passed: 4,
+    packs: packs.map(({ id, text, extra }) => {
+      const sha = createHash('sha512').update(text).digest('hex');
+      return { id, rows: text.split('\n').filter(Boolean).length, bytes: Buffer.byteLength(text), sha512: sha, file: `de/products-${sha.slice(0, 16)}.txt`, cut: 0, ...extra };
+    }),
+    ...over,
+  };
+  const signed = JSON.stringify(catalog);
+  return JSON.stringify({ signed, signature: edSign(null, Buffer.from(signed), privateKey).toString('base64') });
+}
+
+test('offline packs: the signed list of both packs, and older manifests still read', async () => {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const key = publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64');
+  const now = Date.parse('2026-11-09T12:00:00Z');
+  const allText = packText();
+  const germanText = `${allText.split('\n').slice(0, 3).join('\n')}\n`;
+  const removed = { no_german_name: 1, not_seen_here: 0 };
+  const env = signedCatalog(privateKey, [
+    { id: 'all', text: allText },
+    { id: 'german', text: germanText, extra: { removed } },
+    { id: 'vegan', text: allText }, // a later builder's pack: ignored
+  ]);
+  const cat = readCatalog(JSON.parse(env), key, now);
+  assert.deepEqual(cat.packs.map((p) => [p.id, p.rows]), [['german', 3], ['all', 4]]);
+  assert.deepEqual(cat.packs[0].removed, removed);
+  assert.equal(cat.packs[1].removed, undefined);
+  assert.equal(cat.passed, 4);
+  const reason = (fn: () => unknown) => {
+    try {
+      fn();
+      return 'ok';
+    } catch (e) {
+      return e instanceof PackError ? e.reason : String(e);
+    }
+  };
+  const parsed = JSON.parse(env);
+  assert.equal(reason(() => readCatalog({ ...parsed, signed: parsed.signed.replace('"rows":3', '"rows":2') }, key, now)), 'signature');
+  assert.equal(reason(() => readCatalog(JSON.parse(signedCatalog(privateKey, [{ id: 'all', text: allText }, { id: 'all', text: allText }])), key, now)), 'corrupt');
+  assert.equal(reason(() => readCatalog(JSON.parse(signedCatalog(privateKey, [{ id: 'all', text: allText, extra: { file: '../x.txt' } }])), key, now)), 'corrupt');
+  assert.equal(reason(() => readCatalog(JSON.parse(signedCatalog(privateKey, [{ id: 'vegan', text: allText }])), key, now)), 'corrupt');
+  assert.equal(reason(() => readCatalog(JSON.parse(signedCatalog(privateKey, [{ id: 'all', text: allText, extra: { bytes: 900_000_000 } }])), key, now)), 'too_large');
+  assert.equal(reason(() => readCatalog(JSON.parse(signedCatalog(privateKey, [{ id: 'all', text: allText }], { created: '2027-01-01T00:00:00Z' })), key, now)), 'corrupt');
+  // the format-1 manifest is the full pack alone
+  const old = readCatalog(JSON.parse(signedPack(privateKey, allText)), key, now);
+  assert.deepEqual(old.packs.map((p) => p.id), ['all']);
+
+  // fetching: packs.json first; while none is published, manifest.json
+  const asked: string[] = [];
+  const fake = (routes: Record<string, [number, string]>) => async (url: string) => {
+    asked.push(url);
+    const [status, body] = routes[url] ?? [404, ''];
+    return new Response(body, { status });
+  };
+  const remote = await fetchRemoteCatalog(key, fake({ [PACK_CATALOG_URL]: [200, env] }), now);
+  assert.equal(remote.catalog.packs.length, 2);
+  assert.deepEqual(asked, [PACK_CATALOG_URL]);
+  asked.length = 0;
+  const fallback = await fetchRemoteCatalog(key, fake({ [PACK_MANIFEST_URL]: [200, signedPack(privateKey, allText)] }), now);
+  assert.deepEqual(fallback.catalog.packs.map((p) => p.id), ['all']);
+  assert.deepEqual(asked, [PACK_CATALOG_URL, PACK_MANIFEST_URL]);
+  await assert.rejects(fetchRemoteCatalog(key, fake({}), now), (e) => e instanceof PackError && e.reason === 'not_configured');
+  await assert.rejects(fetchRemoteCatalog(key, fake({ [PACK_CATALOG_URL]: [503, ''] }), now), (e) => e instanceof PackError && e.reason === 'server');
+
+  // installing the German pack: it is checked against its own entry and opens again on the next start
+  const german = remotePack(remote, 'german')!;
+  assert.equal(remotePack(fallback, 'german'), undefined);
+  const download = (body: string) => async (): Promise<DownloadedPack> => ({
+    text: body,
+    sha512: createHash('sha512').update(body).digest('hex'),
+    bytes: Buffer.byteLength(body),
+    commit: async () => {},
+    discard: async () => {},
+  });
+  const done = await installPack(german, null, download(germanText));
+  assert.equal(done.manifest.id, 'german');
+  await assert.rejects(installPack(german, null, download(allText)), (e) => e instanceof PackError && e.reason === 'corrupt');
+  // switching from an older full pack is fine; from a newer one it isn't
+  const oldAll = readEnvelope(JSON.parse(signedPack(privateKey, allText)), key, now);
+  assert.equal((await installPack(german, oldAll, download(germanText))).manifest.id, 'german');
+  await assert.rejects(installPack(german, { ...oldAll, created: '2026-11-16T03:20:00.000Z' }, download(germanText)), (e) => e instanceof PackError && e.reason === 'older');
+  const reopened = openInstalled(german.envelopeJson, germanText, key);
+  assert.deepEqual([reopened.manifest.id, reopened.index.size], ['german', 3]);
+  // a stored envelope from before the two packs still opens as the full pack
+  assert.equal(openInstalled(signedPack(privateKey, allText), allText, key).manifest.id, 'all');
+  assert.throws(() => openInstalled(JSON.stringify({ pack: 'nope', envelope: JSON.parse(env) }), germanText, key), (e) => e instanceof PackError && e.reason === 'corrupt');
+});
+
+test('offline packs: new downloads default to German products, an existing pack keeps its kind', () => {
+  assert.equal(packChoice(null, undefined), 'german');
+  assert.equal(packChoice(undefined, 'all'), 'all'); // had a pack before the choice existed
+  assert.equal(packChoice('all', undefined), 'all');
+  assert.equal(packChoice('german', 'all'), 'german'); // chose to switch
+  assert.equal(packChoice('vegan', 'german'), 'german');
+  // the choice travels in backups; the pack itself doesn't
+  const b = JSON.parse(JSON.stringify(buildBackup({ ...parseBackup(JSON.stringify({ app: 'OpenPlate' })), packChoice: 'all' })));
+  assert.equal(parseBackup(JSON.stringify(b)).packChoice, 'all');
+  assert.equal(parseBackup(JSON.stringify({ app: 'OpenPlate', packChoice: 'evil' })).packChoice, undefined);
 });

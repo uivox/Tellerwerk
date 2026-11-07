@@ -540,11 +540,41 @@ async function run(scheme) {
       await btn('Off').waitFor();
       await page.goBack();
     });
-    await step('offline product data: screen opens and explains its state', async () => {
+    await step('offline product data: two packs to choose from, nothing fetched until a tap', async () => {
+      const packRequests = [];
+      // A faked server: the list of packs isn't signed with Tellerwerk's key, so it must be refused.
+      await page.route('https://raw.githubusercontent.com/**', (r) => {
+        packRequests.push(r.request().url());
+        if (r.request().url().endsWith('/de/packs.json')) {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signed: '{"format":2}', signature: 'AAAA' }) });
+        }
+        return r.fulfill({ status: 404, body: '' });
+      });
       await text('Offline product data', { exact: true }).click();
-      // Without a signing key in this build it says so; with one it offers the download.
-      await text(/Not available yet|Not downloaded|On this device/).waitFor();
+      await text(/Not downloaded|On this device/).waitFor();
       await text(/Open Database License/).waitFor();
+      // new downloads default to German products only
+      const german = page.getByRole('radio', { name: /German products only/ }).filter({ visible: true }).first();
+      const all = page.getByRole('radio', { name: /All products sold in Germany/ }).filter({ visible: true }).first();
+      if ((await german.getAttribute('aria-checked')) !== 'true') throw new Error('German products only is not the default');
+      // how the packs are chosen, with the rule thresholds
+      await btn('How this is chosen').click();
+      await text(/a German name and was scanned at least 3 times/).waitFor();
+      await text(/at least 20 times/).waitFor();
+      await all.click();
+      if ((await all.getAttribute('aria-checked')) !== 'true') throw new Error('choosing a pack did nothing');
+      await page.waitForTimeout(800);
+      const saved = JSON.parse((await idbGet('openplate-v1')) ?? '{}');
+      if (saved.state?.packChoice !== 'all') throw new Error(`the choice was not saved: ${saved.state?.packChoice}`);
+      if (packRequests.length) throw new Error(`fetched before a tap: ${packRequests}`);
+      // sizes are only asked for on a tap; an unsigned list is refused and nothing is installed
+      await btn('Show sizes').click();
+      await text(/isn’t signed by Tellerwerk/).waitFor();
+      if (!packRequests.some((u) => u.endsWith('/de/packs.json'))) throw new Error('the list of packs was not asked for');
+      if (packRequests.some((u) => u.includes('/products-'))) throw new Error('a product file was downloaded');
+      await text('Not downloaded', { exact: true }).waitFor();
+      await german.click();
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
       await page.goBack();
       await text('Offline product data', { exact: true }).waitFor();
     });
