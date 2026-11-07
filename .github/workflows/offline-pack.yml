@@ -1,14 +1,24 @@
 name: Offline product pack
 
-# Builds the offline product pack for Germany once a week from Open Food Facts' export, signs it and
-# publishes it to the `offline-pack` branch, where the app downloads it on request (raw.githubusercontent.com).
-# It never touches main or the app releases.
+# Builds the offline product packs for Germany once a week from Open Food Facts' export (all products
+# sold in Germany, and German products only), signs them and publishes them to the `offline-pack`
+# branch, where the app downloads one on request (raw.githubusercontent.com). It never touches main or
+# the app releases.
+#
+# *Run workflow* with "dry run" (works from any branch): builds both packs without the signing key and
+# publishes nothing; the numbers and samples of kept and removed products are in the run's summary and
+# its `pack-report` artifact.
 #
 # One-time setup: docs/CONTRIBUTING.md → "Offline product pack" (signing key, environment, branch).
 on:
   schedule:
     - cron: '17 3 * * 1' # Mondays 03:17 UTC; Open Food Facts updates its export daily
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: build and report only, sign and publish nothing (works from a branch)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,6 +29,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     # The signing key lives in this environment, which only main may use (Settings → Environments → offline-pack).
@@ -65,3 +76,29 @@ jobs:
           # One commit, force-pushed: the branch never grows with old packs.
           git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" offline-pack
           echo "Published to the offline-pack branch" >> "$GITHUB_STEP_SUMMARY"
+
+  dry-run:
+    if: ${{ inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: bash scripts/install-deps.sh
+      - run: bash scripts/ci-run.sh npm test
+      - name: Build both packs (dry run)
+        env:
+          OFFLINE_PACK_REPORT: pack-report
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 30 -A "Tellerwerk offline pack builder (https://github.com/${GITHUB_REPOSITORY})" \
+            https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz \
+            | gzip -dc | node scripts/build-offline-pack.mjs --dry-run out
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pack-report
+          path: pack-report/report.md

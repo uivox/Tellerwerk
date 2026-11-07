@@ -4,14 +4,16 @@
  */
 import { useSyncExternalStore } from 'react';
 import {
-  fetchRemoteManifest,
+  fetchRemoteCatalog,
   installPack,
   openInstalled,
   PACK_PUBLIC_KEY,
   PackError,
+  remotePack,
+  type PackId,
   type PackIndex,
   type PackManifest,
-  type RemotePack,
+  type RemoteCatalog,
 } from './offlinePack';
 import { deleteInstalledPack, downloadPack, loadInstalledPack } from './packStore';
 
@@ -58,19 +60,25 @@ export function ensurePackLoaded(): Promise<void> {
   return loading;
 }
 
-/** The newest pack on the server (signature checked). */
-export const checkRemotePack = (): Promise<RemotePack> => fetchRemoteManifest(PACK_PUBLIC_KEY, fetch);
+/** The newest packs on the server (signature checked). */
+export const checkRemotePacks = (): Promise<RemoteCatalog> => fetchRemoteCatalog(PACK_PUBLIC_KEY, fetch);
 
-/** Downloads and installs `remote`, or says the installed pack is already the same. */
+/**
+ * Downloads and installs pack `id` of `remote`, or says the installed pack is already the same. The
+ * pack on the device stays in use until the new one is downloaded and checked (`installPack`).
+ */
 export async function installRemotePack(
-  remote: RemotePack,
+  remote: RemoteCatalog,
+  id: PackId,
   onProgress: (received: number) => void,
   signal?: AbortSignal,
 ): Promise<'installed' | 'up_to_date'> {
   await ensurePackLoaded();
+  const pack = remotePack(remote, id);
+  if (!pack) throw new PackError('not_configured', `no ${id} pack`);
   const installed = state.status === 'ready' ? state.manifest : null;
-  if (installed && installed.sha512 === remote.manifest.sha512) return 'up_to_date';
-  const { manifest, index } = await installPack(remote, installed, downloadPack, onProgress, signal);
+  if (installed && installed.id === id && installed.sha512 === pack.manifest.sha512) return 'up_to_date';
+  const { manifest, index } = await installPack(pack, installed, downloadPack, onProgress, signal);
   set({ status: 'ready', manifest, index });
   return 'installed';
 }

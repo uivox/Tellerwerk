@@ -6,6 +6,7 @@ import { RECIPE_TAGS } from './recipes';
 import { normalizeReminders, type ReminderPrefs } from './reminders';
 import { normalizeMealSplit } from './mealSplit';
 import { normalizeHidden, type HiddenFood } from './foodHistory';
+import { isPackId, type PackId } from './packIds';
 import {
   MEALS,
   type Activity,
@@ -61,6 +62,8 @@ export interface BackupData {
   hiddenHistory?: HiddenFood[];
   /** Own foods hidden from *Not on Open Food Facts yet*; optional (older exports have none). */
   offHidden?: HiddenFood[];
+  /** The chosen offline pack (not the pack itself); optional. */
+  packChoice?: PackId | null;
 }
 
 const BACKUP_KEYS: (keyof BackupData)[] = [
@@ -83,6 +86,7 @@ const BACKUP_KEYS: (keyof BackupData)[] = [
   'goalCheck',
   'hiddenHistory',
   'offHidden',
+  'packChoice',
 ];
 
 /** Picks exactly the exported fields from the app state (which also holds functions and UI settings). */
@@ -378,6 +382,7 @@ export function parseBackupReport(input: string, now = new Date()): BackupReport
     goalCheck: isObj(raw.goalCheck) ? normalizeGoalCheck(raw.goalCheck) : undefined,
     hiddenHistory: Array.isArray(raw.hiddenHistory) ? normalizeHidden(raw.hiddenHistory) : undefined,
     offHidden: Array.isArray(raw.offHidden) ? normalizeHidden(raw.offHidden) : undefined,
+    packChoice: isPackId(raw.packChoice) ? raw.packChoice : undefined,
     recipes: uniqueById(keep(raw.recipes, sanitizeRecipe, counter)),
     meals: uniqueById(keep(raw.meals, sanitizeMeal, counter)),
   };
