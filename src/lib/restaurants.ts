@@ -2,7 +2,7 @@ import type { RestaurantRow } from './restaurantData';
 import type { Food } from './types';
 
 /**
- * Menu items of fast-food chains in Germany, bundled with the app (scripts/build-restaurants.mjs).
+ * Menu items of fast-food chains and bakery chains in Germany, bundled with the app (scripts/build-restaurants.mjs).
  * Every value comes from the chain's own published nutrition information; nothing is estimated
  * except the Five Guys burgers, which add up the published parts (named "ohne Toppings").
  *
@@ -77,6 +77,26 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
     source: { de: 'Pflichtinformationen zu vorverpackten Produkten', en: 'information on pre-packed products' },
     url: 'https://www.dominos.de/produkte/pflichtinformationen/',
     asOf: '2026-11-04',
+  },  {
+    id: 'ditsch',
+    name: 'Ditsch',
+    source: { de: 'Produktseiten auf ditsch.de', en: 'product pages on ditsch.de' },
+    url: 'https://www.ditsch.de/de/shops/produktwelt',
+    asOf: '2026-11-08',
+  },
+  {
+    id: 'kamps',
+    name: 'Kamps',
+    source: { de: 'Produktseiten auf kamps.de', en: 'product pages on kamps.de' },
+    url: 'https://kamps.de/produkte',
+    asOf: '2026-11-08',
+  },
+  {
+    id: 'hofpfisterei',
+    name: 'Hofpfisterei',
+    source: { de: 'Sortiments-PDFs auf hofpfisterei.de', en: 'range PDFs on hofpfisterei.de' },
+    url: 'https://www.hofpfisterei.de/download/Hofpfisterei-Sortiment-Feinbackwaren_0525.pdf',
+    asOf: '2026-11-08',
   },
 ];
 
