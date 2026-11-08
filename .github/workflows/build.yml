@@ -3,6 +3,10 @@ name: Build apps
 # Every push to main builds an Android APK and an iPhone IPA and publishes them
 # as a GitHub release (version 1.0.<run number>). Public repos build for free.
 #
+# Test builds: *Run workflow* on any other branch builds the same files but publishes nothing.
+# The APK and IPA are only kept as this run's artifacts (Actions → the run → Artifacts, 14 days),
+# for testing native changes (widgets, icons, new native modules) before they are merged.
+#
 # A release is only published when the type check and tests pass and the Android APK is signed
 # with the project's own key (never the public debug key). Required repository secrets
 # (Settings → Secrets and variables → Actions):
@@ -100,6 +104,7 @@ jobs:
         with:
           name: android-${{ matrix.app }}
           path: ${{ matrix.app }}.apk
+          retention-days: 14
 
   ios:
     # Expo SDK 56+ needs Xcode 26.4 or newer; macos-15 only has up to 26.3.
@@ -144,9 +149,12 @@ jobs:
         with:
           name: ios-${{ matrix.app }}
           path: ${{ matrix.app }}.ipa
+          retention-days: 14
 
   release:
-    # Nothing is published unless type check and tests pass too.
+    # Nothing is published unless type check and tests pass too, and only from main:
+    # a run started on another branch is a test build and stops after the artifacts.
+    if: github.ref == 'refs/heads/main'
     needs: [check, android, ios]
     runs-on: ubuntu-latest
     permissions:
