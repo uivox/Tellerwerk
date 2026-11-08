@@ -173,6 +173,7 @@ import {
   PackError,
   PackIndex,
   readEnvelope,
+  isOffInternalCode,
   type DownloadedPack,
 } from '../src/lib/offlinePack';
 import { createShardedStorage, memoryStore } from '../src/lib/persistStorage';
@@ -3902,4 +3903,34 @@ test('storeSizes splits the saved state into rows that add up', () => {
   assert.equal(parts.other, Buffer.byteLength(JSON.stringify({ profile: saved.profile, language: 'de' })));
   assert.equal(store, Object.values(parts).reduce((a, b) => a + b, 0));
   assert.equal(totalBytes({ parts, store }, 1000, -5), store + 1000);
+});
+
+test('offline pack: products without barcode (bakeries, restaurants) are kept by brand and found by search', () => {
+  // Open Food Facts counts these codes up from 2000000000001 and gives them no valid check digit.
+  assert.equal(isOffInternalCode('2000000004711'), true);
+  assert.equal(isOffInternalCode('2000000000001'), true);
+  assert.equal(isOffInternalCode('20003197'), false, 'a shop-internal EAN-8 is a barcode, not an OFF code');
+  assert.equal(isOffInternalCode('2100000000001'), false);
+  assert.equal(isOffInternalCode(undefined), false);
+  const bakery = offRow({ code: '2000000004711', product_name: 'Dinkelkornbrot', brands: 'Bäckerei Test', stores: '', unique_scans_n: '0', 'energy-kcal_100g': '230', proteins_100g: '8', carbohydrates_100g: '40', fat_100g: '2', sugars_100g: '2', 'saturated-fat_100g': '0.3' });
+  const row = packRow(bakery)!;
+  assert.ok(row, 'kept although the check digit is wrong');
+  assert.equal(row.code, '2000000004711');
+  const food = foodFromPackLine(row.line)!;
+  assert.equal(food.id, 'off:2000000004711');
+  assert.equal(food.brand, 'Bäckerei Test');
+  assert.equal(food.barcode, undefined, 'never treated as a scannable barcode');
+  assert.equal(food.offCode, '2000000004711');
+  // the brand is required: without it nobody can tell which bakery's bread this is
+  const { brands: _b, ...noBrand } = bakery;
+  assert.equal(packRow(noBrand), null);
+  // other invalid codes stay out
+  assert.equal(packRow(offRow({ code: '2000000004' })), null);
+  // the German-only pack keeps it like a shop's own brand
+  assert.equal(germanOnlyReason(bakery, 0), 'shop');
+  // search finds it by the bakery's name; barcode lookup doesn't
+  const index = new PackIndex(`${packText()}${row.line}\n`);
+  assert.deepEqual(index.search('backerei test').map((f) => f.name), ['Dinkelkornbrot']);
+  assert.deepEqual(index.search('test dinkel').map((f) => f.name), ['Dinkelkornbrot']);
+  assert.equal(index.lookup('2000000004711'), undefined);
 });
