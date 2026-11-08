@@ -39,6 +39,7 @@ import { buildLabelPrompt, checkPer100, nutrientsFromRobotoff, parseLabelJson, r
 import { COMMUNITY_RECIPES } from '../src/lib/communityRecipes';
 import { newRecipe, perServing, recipeFood, resolveCommunity, resolveRef, scaleItems, searchRecipes, validateCommunity } from '../src/lib/recipes';
 import type { BlsRow } from '../src/lib/blsData';
+import { kcalLeftToday } from '../src/lib/widgetData';
 import { chainOfFood, loadRestaurants, RESTAURANT_CHAINS, restaurantFood, restaurantRows, searchRestaurants } from '../src/lib/restaurants';
 import type { RestaurantRow } from '../src/lib/restaurantData';
 import { addDays, dayKey, lastNDays, weekdayOf } from '../src/lib/dates';
@@ -3933,4 +3934,16 @@ test('offline pack: products without barcode (bakeries, restaurants) are kept by
   assert.deepEqual(index.search('backerei test').map((f) => f.name), ['Dinkelkornbrot']);
   assert.deepEqual(index.search('test dinkel').map((f) => f.name), ['Dinkelkornbrot']);
   assert.equal(index.lookup('2000000004711'), undefined);
+});
+
+test('widget: kcal left today counts only today’s entries', () => {
+  const food = (kcal: number) => ({ per100: { kcal, protein: 0, carbs: 0, fat: 0 } }) as never;
+  const entries = [
+    { date: '2026-11-08', food: food(200), grams: 150 }, // 300 kcal
+    { date: '2026-11-08', food: food(50), grams: 101 }, // 50.5 kcal
+    { date: '2026-11-07', food: food(500), grams: 100 }, // yesterday: not counted
+  ];
+  assert.equal(kcalLeftToday(2000, entries, '2026-11-08'), 1650);
+  assert.equal(kcalLeftToday(300, entries, '2026-11-08'), -50); // Math.round, like the diary's number
+  assert.equal(kcalLeftToday(1800, [], '2026-11-08'), 1800);
 });

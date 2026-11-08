@@ -16,6 +16,7 @@ import { AppLock } from '../src/components/AppLock';
 import { DialogHost } from '../src/components/DialogHost';
 import { FastingSync } from '../src/components/FastingSync';
 import { MealReminderSync } from '../src/components/MealReminderSync';
+import { WidgetSync } from '../src/components/WidgetSync';
 import { finishStartScreen, noteFontsReady } from '../src/components/startScreen';
 import { rendersBehindStartScreen, setupNotifications } from '../src/lib/device';
 import { loadBls } from '../src/lib/bls';
@@ -142,6 +143,7 @@ export default function RootLayout() {
       <DialogHost />
       <FastingSync />
       <MealReminderSync />
+      <WidgetSync />
     </>
   );
 }

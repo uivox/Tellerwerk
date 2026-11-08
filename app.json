@@ -28,7 +28,9 @@
         "monochromeImage": "./assets/adaptive-monochrome.png",
         "backgroundColor": "#9C2F62"
       },
-      "permissions": ["android.permission.health.READ_STEPS"],
+      "permissions": [
+        "android.permission.health.READ_STEPS"
+      ],
       "versionCode": 1
     },
     "plugins": [
@@ -264,6 +266,24 @@
           "ios": {
             "deploymentTarget": "16.4"
           }
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enableAndroid": false,
+          "widgets": [
+            {
+              "name": "KcalLeft",
+              "displayName": "Tellerwerk",
+              "description": "kcal left today",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
+                ]
+              }
+            }
+          ]
         }
       ]
     ],

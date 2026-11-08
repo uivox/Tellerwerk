@@ -13,7 +13,11 @@ const asOpenPlate = (config) => {
     name: 'OpenPlate',
     ios: { ...config.ios, bundleIdentifier: OLD_ID, infoPlist: renameAll(config.ios?.infoPlist) },
     android: { ...config.android, package: OLD_ID },
-    plugins: (config.plugins ?? []).map((p) => (Array.isArray(p) && p[1] && typeof p[1] === 'object' ? [p[0], renameAll(p[1])] : p)),
+    // No widget in the old copy: its extension would cost SideStore users a second App ID for an app
+    // that only shows the move notice (updateKcalWidget does nothing without it).
+    plugins: (config.plugins ?? [])
+      .filter((p) => (Array.isArray(p) ? p[0] : p) !== 'expo-widgets')
+      .map((p) => (Array.isArray(p) && p[1] && typeof p[1] === 'object' ? [p[0], renameAll(p[1])] : p)),
   };
 };
 
