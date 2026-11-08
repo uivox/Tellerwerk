@@ -1,1 +1,72 @@
-# kamps: being collected, filled in the next commit.
+# Kamps, from the nutrition values on each product page under https://kamps.de/produkte, read 2026-11-08.
+# Values per 100 g only; no page states a piece weight, so no servings (loaves are logged in grams). Where a page gives several versions (Bäckerei vs. Bäckerei mit Backstube, NRW vs. outside) the standard “Bäckerei” values are used; the Kamps Eck page lists two loaves, both written.
+# name|serving|unit|kcal|protein|carbs|fat|fiber|sugar|satFat|salt (per 100 g)
+Preisheld||g|273|9.2|53.1|1.9|3.3|1.4|0.3|1.3
+Kamps Dorfbrot||g|246|8.3|51|1.1|4.51|1.8|0.2|1.6
+Kamps Eck Roggenvollkornbrot||g|374|9.2|30.7|11.1|7.6|2.3|1|1.3
+Kamps Eck herzhaftes Vollkornbrot||g|247|9|27|10|6.9|2.5|0.9|1.1
+Dinkelvollkornbrot||g|304|10.7|40.6|9.4|6.9|3.1|1.1|1.6
+Steinofenbrot (ehemals Mühlenbrot)||g|248|8.4|48|1.5|3.51|1.2|0.2|1.6
+Kürbiskernbrot||g|305|11|39|11|5.4|1.4|1.4|1.3
+Dinkel-Matze||g|268|8.3|51|2.3|4.8|4.5|0.3|1.7
+Butterstuten||g|341|7.3|57|8.7|2.4|13|5.9|1
+Graubrot||g|258|8.3|51|1.6|3.5|0.86|0.2|1.6
+Meisterkorn||g|284|9.67|45.27|5.85|5.72|3.26|0.66|1.55
+Französisches Baguette||g|247|7.3|52|0.7|1.8|3|0.1|1.3
+Landbaguette Rustikal||g|275|8.6|56|1.2|2.8|1.6|0.2|1.6
+Schnittbrötchen||g|228|7|45|1.4|2.8|1.4|0.5|1.3
+Kronprinz||g|281|8.7|56.7|2|2.8|1.5|0.3|1.6
+Vollkornbrötchen||g|281|10.3|37.6|8|8.8|2|1.5|1.6
+Haselnuss Korneck||g|345|13|36|15|7|2.3|2.2|1.5
+Kürbiskernbrötchen||g|359|15.4|38.57|14.62|5.57|1.3|2.78|1.35
+Mehrkornbrötchen||g|296|9.8|40.3|9.4|5.3|2.3|1.2|1.6
+Roggster||g|218|6.8|43.2|1.4|3|1.7|0.6|1.4
+Käsebrötchen||g|296|12.68|39.48|9.26|2.15|1.8|6.07|1.15
+Kaiserbrötchen||g|277|8.4|55.2|1.8|3.2|1.4|0.8|1.5
+Fanblock Rosine Haferflocken||g|331|8.2|58.5|6.3|3.5|21|0.8|1
+Dinkelmax||g|276|10.37|51.96|2.17|3.72|4.12|0.75|1.56
+Laugenbrezel XL||g|295|9.2|52.1|4.6|4.1|3.7|0.7|2.1
+Laugenbrezel||g|351|11.1|61.1|5.85|4.88|0.49|1.22|2.71
+Laugenstange||g|330|10.24|58.78|5.37|3.05|3.78|0.98|2.07
+Laugenecke||g|394|8.78|45.12|19.15|2.8|1.83|12.32|1.05
+Kamps Streuselchen||g|469|7.5|75.3|14.8|2.3|31.6|9.2|0.9
+Franzbrötchen||g|536|5.1|45|37|1.9|12|17|0.7
+Unser neuer Streuseltaler||g|400|6|61|14|1.4|25|9.5|0.4
+Puddingbrezel||g|244|3.8|36.8|9.1|1|15|4.7|0.6
+Apfeltasche||g|264|2.8|40.8|9.7|1.3|20.9|4.6|0.4
+Rosinenstütchen||g|338|8|57.3|8.1|2.1|20.6|4.1|1.1
+Marzipan Rosinenschnecke||g|367|5.7|54.4|13.7|2|28.3|5.3|0.5
+Wuppi Schoko||g|364|8.3|50.2|9.5|2.4|23.9|5|2.1
+Wuppi Zimt||g|379|7.73|61.2|11.08|2.01|25.95|7.44|1.99
+Französisches Buttercroissant||g|448|8.3|47.6|24.4|2.6|9.4|15.9|1.2
+Nussstriezel||g|389|5.11|52.52|17.19|2.03|25.92|6.42|0.68
+Kirschstange||g|353|4|54.75|12.66|2.04|28.12|5.71|0.5
+Nussecke||g|521|7.6|48.4|32.1|3.9|32.7|12.4|0.2
+Apfel-Streuselkuchen||g|296|3.1|34.9|15.7|1.6|18.5|3.6|0.4
+Kirsch-Streuselkuchen||g|351|3.8|43.6|17.7|1.1|23.3|4.1|0.4
+Käsetorte||g|238|6.5|29.2|10.6|0.3|20.3|4.2|0.2
+Streuselkuchen||g|357|5.6|53.8|13.1|1.7|19|8.9|0.5
+Apfelriemchen||g|185|2.3|33.6|4.4|1.1|17.2|2.6|0.32
+Aprikosenriemchen||g|190|2.46|34.8|4.17|1.82|17.4|2.75|0.33
+Kirschriemchen||g|193|2.53|35.65|4.17|1.61|18.1|2.4|0.33
+Bienenstich||g|308|5.1|28.1|19.3|0.9|18.2|6.6|0.07
+Erdbeer-Buttermilch Sahne-Kuchen||g|191|2.7|26|8.3|0.7|19.4|3.1|0.23
+Grüner Burger||g|177|5.1|22.1|7.3|0.9|2.6|1.1|1.1
+Kamps Softie mit Tomate und Mozzarella||g|213|9.6|18.9|10.8|1.3|2.3|5.4|0.8
+Spicy Chicken Avocado||g|261|12|23|13|1|1.5|5.1|1.6
+Kaiserbrötchen mit veganem Knusper-Schnitzel||g|219|9.8|15|13|2.6|2.2|1.2|1.2
+Kürbiskernbrötchen mit Brie||g|375|14.36|25.04|23.35|3.59|1.46|11.37|1.28
+Korneck Haselnuss mit Putenbrust + Frischkäse||g|218|10.7|16.9|11.4|2.8|2.1|3.9|1.2
+Kronprinz mit Zwiebelmettwurst||g|244|9.6|22.8|12.5|1.7|1.3|7.5|1.8
+Laugenecke mit Frischkäse und Schnittlauch||g|315|7.75|28.05|18.32|3.21|2.44|12.09|0.82
+Käsebrötchen mit Gouda und Kochschinken||g|254|12.11|20.38|13.48|1.15|1.9|6.29|1.21
+Mehrkornbrötchen mit Gouda||g|287|10.4|22|16.9|2.9|2.5|5.1|1.4
+Wrap Crispy Chicken||g|260|8.6|27|13|1.33|2.6|2.6|1.4
+Wrap Tomate Mozzarella||g|207|7|2.4|13|0.2|2.4|5.3|1.2
+Salat Hähnchen||g|130|6.4|18.5|3.2|1|1.2|0.6|0.7
+Vanille Quark Erdbeer||g|90|6.3|12.3|1.6|0.7|1.3|0.9|0.1
+Käsebrötchen mit Ei||g|257|11.1|20.9|14.1|1.1|2.1|4.6|0.9
+Schnittbrötchen mit Gouda||g|269|9.7|20|15|1.3|2.1|5.6|1.3
+Schnittbrötchen mit Fleischkäse||g|238|9.62|16.89|14.48|1|0.88|5.7|1.71
+Hot Toast Käse Schinken||g|260|11.43|27.97|11.01|1.69|3.02|4.58|1.42
+Hot Toast Tomate Mozzarella||g|211|8.3|26|7.8|1.9|3.6|3.7|0.8

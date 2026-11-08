@@ -38,7 +38,7 @@ No account. Your data stays on your device.
 ### Logging food
 
 - **Food diary** for breakfast, lunch, dinner and snacks, with a calorie ring, macro bars and per-meal targets.
-- **Food search** in about 100 basics, the **German nutrient database BLS 4.0**, about 660 **fast-food** items and millions of **Open Food Facts** products.
+- **Food search** in about 100 basics, the **German nutrient database BLS 4.0**, about 850 **fast-food and bakery** items and millions of **Open Food Facts** products.
 - **Barcode scanner** on the phone and in the browser; you can also type the number in.
 - **AI photo logging** with your own AI: Claude, OpenAI, Google Gemini, or Ollama / LM Studio on your PC.
 - **Quick add, your own foods, your full food history, saved meals** and *copy from yesterday*.
