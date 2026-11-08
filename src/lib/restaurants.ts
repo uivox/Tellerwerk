@@ -98,6 +98,13 @@ export const RESTAURANT_CHAINS: RestaurantChain[] = [
     url: 'https://www.hofpfisterei.de/download/Hofpfisterei-Sortiment-Feinbackwaren_0525.pdf',
     asOf: '2026-11-08',
   },
+  {
+    id: 'coffeefellows',
+    name: 'Coffee Fellows',
+    source: { de: 'Produktdatenbank auf coffee-fellows.com', en: 'product database on coffee-fellows.com' },
+    url: 'https://products.coffee-fellows.com/de/print',
+    asOf: '2026-11-08',
+  },
 ];
 
 export const restaurantChain = (id: string): RestaurantChain | undefined => RESTAURANT_CHAINS.find((c) => c.id === id);
@@ -171,8 +178,9 @@ function getIndex(rows: RestaurantRow[]): Indexed[] {
       row,
       name,
       words: name.split(/[\s,()/&–-]+/).filter(Boolean),
-      // "mcdonalds", "mcd", "burger king", "bk" … all find the chain
-      brand: [fold(chain?.name ?? ''), row[0]].flatMap((b) => [b, b.replace(/\s+/g, '')]),
+      // "mcdonalds", "mcd", "burger king", "bk" … all find the chain; with a name of several words
+      // each word counts on its own ("coffee fellows latte" = coffee + fellows + latte)
+      brand: [fold(chain?.name ?? ''), row[0]].flatMap((b) => [b, b.replace(/\s+/g, ''), ...b.split(/\s+/).filter((w) => w.length >= 3)]),
     };
   });
   if (rows === loaded) index = built;
