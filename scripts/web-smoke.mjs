@@ -1023,6 +1023,10 @@ async function run(scheme) {
       await page.getByRole('tab', { name: 'Profile' }).click();
       await text('Your data', { exact: true }).click();
       await text('On this device', { exact: true }).waitFor();
+      await text('Tellerwerk data in total', { exact: true }).waitFor();
+      await text(/^about [\d.,]+ (KB|MB)$/).first().waitFor();
+      await text('Settings & other', { exact: true }).waitFor();
+      if (!/Diary entries\s*[\d.,]+ · ([\d.,]+ (KB|MB)|under 1 KB)/.test(await page.innerText('body'))) throw new Error('the diary row shows no size');
       await text('Where data can go', { exact: true }).waitFor();
       await text('world.openfoodfacts.org · search.openfoodfacts.org · robotoff.openfoodfacts.org').waitFor();
       await text(/^Last connection: /).waitFor();

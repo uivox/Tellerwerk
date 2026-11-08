@@ -7,13 +7,13 @@ import { deleteEverythingFlow } from '../src/components/deleteEverything';
 import { useOffLogin } from '../src/components/offLogin';
 import { Button, Card, ChipGroup, Divider, ListRow, Row, Screen, SectionTitle, Txt } from '../src/components/ui';
 import { PROVIDER_NAMES } from '../src/lib/ai';
-import { pickBackup } from '../src/lib/backup';
 import { SERVERS, type ServerId } from '../src/lib/connectionLog';
 import { buildCsvTables, CSV_RANGE_PRESETS, presetRange, rowCounts, zipTables, type CsvRangePreset } from '../src/lib/csvExport';
 import { addDays, dayKey, formatTime, locale } from '../src/lib/dates';
 import { shareExport } from '../src/lib/device';
 import { usePack } from '../src/lib/packRuntime';
-import { useStore } from '../src/lib/store';
+import { storeSizes, totalBytes } from '../src/lib/storageSizes';
+import { savedState, useStore } from '../src/lib/store';
 import { useColors } from '../src/lib/theme';
 import { useT } from '../src/lib/useT';
 
@@ -40,19 +40,25 @@ export default function YourData() {
 
   const num = (n: number) => n.toLocaleString(locale(lang));
   const mb = (bytes: number) => (bytes / 1024 / 1024).toLocaleString(locale(lang), { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-  const storeBytes = useMemo(() => JSON.stringify(pickBackup(s)).length, [s]);
-  const size = (bytes: number) => (bytes < 1024 * 1024 ? t('yd_kb', { kb: Math.max(1, Math.round(bytes / 1024)).toLocaleString(locale(lang)) }) : t('yd_mb', { mb: mb(bytes) }));
+  const size = (bytes: number) => (bytes < 1024 ? t('yd_kb_less') : bytes < 1024 * 1024 ? t('yd_kb', { kb: Math.round(bytes / 1024).toLocaleString(locale(lang)) }) : t('yd_mb', { mb: mb(bytes) }));
+  const sizes = useMemo(() => storeSizes(savedState(s) as unknown as Record<string, unknown>), [s]);
+  const p = sizes.parts;
+  const packBytes = pack.status === 'ready' ? pack.manifest.bytes : 0;
+  const aiBytes = aiLog?.bytes ?? 0;
+  const total = totalBytes(sizes, packBytes, aiBytes);
+  const withSize = (count: string, bytes: number) => `${count} · ${size(bytes)}`;
 
   const stored: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value: string }[] = [
-    { icon: 'book-outline', label: t('yd_diary'), value: num(s.entries.length) },
-    { icon: 'nutrition-outline', label: t('yd_foods'), value: num(s.customFoods.length) },
-    { icon: 'bookmark-outline', label: t('yd_meals_recipes'), value: `${num(s.meals.length)} · ${num(s.recipes.length)}` },
-    { icon: 'scale-outline', label: t('yd_weights'), value: num(s.weights.length) },
-    { icon: 'water-outline', label: t('yd_water'), value: num(Object.values(s.water).filter((v) => v > 0).length) },
-    { icon: 'moon-outline', label: t('yd_fasts'), value: num(s.fastingHistory.length) },
-    { icon: 'cloud-download-outline', label: t('yd_pack'), value: pack.status === 'ready' ? size(pack.manifest.bytes) : t('yd_none') },
-    { icon: 'sparkles-outline', label: t('yd_ai_log'), value: aiLog && aiLog.count ? `${num(aiLog.count)} · ${size(aiLog.bytes)}` : t('yd_none') },
-    { icon: 'swap-vertical-outline', label: t('yd_conn_log'), value: s.security.logConnections ? num(s.connections.length) : t('yd_off') },
+    { icon: 'book-outline', label: t('yd_diary'), value: withSize(num(s.entries.length), p.diary) },
+    { icon: 'nutrition-outline', label: t('yd_foods'), value: withSize(num(s.customFoods.length), p.foods) },
+    { icon: 'bookmark-outline', label: t('yd_meals_recipes'), value: withSize(`${num(s.meals.length)} · ${num(s.recipes.length)}`, p.mealsRecipes) },
+    { icon: 'scale-outline', label: t('yd_weights'), value: withSize(num(s.weights.length), p.weights) },
+    { icon: 'water-outline', label: t('yd_water'), value: withSize(num(Object.values(s.water).filter((v) => v > 0).length), p.water) },
+    { icon: 'moon-outline', label: t('yd_fasts'), value: withSize(num(s.fastingHistory.length), p.fasts) },
+    { icon: 'cloud-download-outline', label: t('yd_pack'), value: pack.status === 'ready' ? size(packBytes) : t('yd_none') },
+    { icon: 'sparkles-outline', label: t('yd_ai_log'), value: aiLog && aiLog.count ? withSize(num(aiLog.count), aiLog.bytes) : t('yd_none') },
+    { icon: 'swap-vertical-outline', label: t('yd_conn_log'), value: s.security.logConnections ? withSize(num(s.connections.length), p.connections) : t('yd_off') },
+    { icon: 'settings-outline', label: t('yd_other'), value: size(p.other) },
   ];
 
   const lastFor = (id: ServerId): string => {
@@ -94,6 +100,14 @@ export default function YourData() {
 
       <SectionTitle>{t('yd_stored')}</SectionTitle>
       <Card style={{ gap: 10 }}>
+        <Row gap={12}>
+          <Ionicons name="phone-portrait-outline" size={18} color={c.accent} />
+          <Txt v="h3" style={{ flex: 1 }}>
+            {t('yd_total')}
+          </Txt>
+          <Txt v="h3">{t('yd_total_value', { size: size(total) })}</Txt>
+        </Row>
+        <Divider />
         {stored.map((x) => (
           <Row key={x.label} gap={12}>
             <Ionicons name={x.icon} size={18} color={c.sub} />
@@ -102,7 +116,7 @@ export default function YourData() {
           </Row>
         ))}
         <Divider />
-        <Txt v="small">{t('yd_stored_note', { size: size(storeBytes) })}</Txt>
+        <Txt v="small">{t('yd_stored_note')}</Txt>
       </Card>
 
       <SectionTitle>{t('yd_servers')}</SectionTitle>

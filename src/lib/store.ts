@@ -201,6 +201,39 @@ const initial = {
   backupSnoozedUntil: null as number | null,
 };
 
+/** What is saved on the device: the persisted part of the state. Also measured on Profile → Your data. */
+export function savedState(s: State): Persisted {
+  return {
+    profile: s.profile,
+    language: s.language,
+    entries: s.entries,
+    customFoods: s.customFoods,
+    recentFoods: s.recentFoods,
+    hiddenHistory: s.hiddenHistory,
+    water: s.water,
+    weights: s.weights,
+    fastingActive: s.fastingActive,
+    fastingHistory: s.fastingHistory,
+    fastingSchedule: s.fastingSchedule,
+    ai: s.ai,
+    meals: s.meals,
+    recipes: s.recipes,
+    appearance: s.appearance,
+    layout: s.layout,
+    reminders: s.reminders,
+    insights: s.insights,
+    offPending: s.offPending,
+    offChecks: s.offChecks,
+    offHidden: s.offHidden,
+    packChoice: s.packChoice,
+    goalCheck: s.goalCheck,
+    security: s.security,
+    connections: s.connections,
+    lastBackupAt: s.lastBackupAt,
+    backupSnoozedUntil: s.backupSnoozedUntil,
+  };
+}
+
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
@@ -370,35 +403,7 @@ export const useStore = create<State>()(
       onRehydrateStorage: () => (_state, error) => {
         if (error) setHydrationError(error);
       },
-      partialize: (s): Persisted => ({
-        profile: s.profile,
-        language: s.language,
-        entries: s.entries,
-        customFoods: s.customFoods,
-        recentFoods: s.recentFoods,
-        hiddenHistory: s.hiddenHistory,
-        water: s.water,
-        weights: s.weights,
-        fastingActive: s.fastingActive,
-        fastingHistory: s.fastingHistory,
-        fastingSchedule: s.fastingSchedule,
-        ai: s.ai,
-        meals: s.meals,
-        recipes: s.recipes,
-        appearance: s.appearance,
-        layout: s.layout,
-        reminders: s.reminders,
-        insights: s.insights,
-        offPending: s.offPending,
-        offChecks: s.offChecks,
-        offHidden: s.offHidden,
-        packChoice: s.packChoice,
-        goalCheck: s.goalCheck,
-        security: s.security,
-        connections: s.connections,
-        lastBackupAt: s.lastBackupAt,
-        backupSnoozedUntil: s.backupSnoozedUntil,
-      }),
+      partialize: savedState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>;
         return {
