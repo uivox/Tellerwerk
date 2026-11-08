@@ -7,7 +7,9 @@
 //
 // Reads the tab-separated export from stdin, keeps products sold in Germany whose barcode, name and
 // nutrition pass the same checks the app uses (src/lib/offlinePack.ts → packRow), orders them by how
-// often they are scanned, and makes two packs:
+// often they are scanned, and makes two packs. Products without a barcode (a bakery's or restaurant's own
+// items, code 200… from Open Food Facts, brand required) are always kept: they have few scans, so the
+// size limit would otherwise cut every one of them. They make two packs:
 //   all     every such product (as before the choice existed);
 //   german  only those with a sign of Germany: a German barcode, a German shop or house brand, Germany as
 //           origin or place of manufacture, or many scans (offlinePack.ts → germanOnlyReason).
@@ -34,7 +36,7 @@ const reportDir = process.env.OFFLINE_PACK_REPORT ?? 'pack-report';
 const lib = await import(pathToFileURL(join(process.cwd(), '.test-build/src/lib/offlinePack.js')).href);
 const {
   packRow, germanOnlyReason, readEnvelope, readCatalog, PackIndex, PACK_PUBLIC_KEY, PACK_FORMAT, PACK_CATALOG_FORMAT, PACK_COUNTRY,
-  MAX_PACK_BYTES, MAX_PACK_ROWS, FOREIGN_MIN_SCANS, foodFromPackLine,
+  MAX_PACK_BYTES, MAX_PACK_ROWS, FOREIGN_MIN_SCANS, foodFromPackLine, isOffInternalCode,
 } = lib;
 
 /** Stay well below the app's hard limits. */
@@ -110,7 +112,7 @@ function handleLine(raw) {
   // 14 digits, well within exact integers. `row.line` is a fresh string (joined).
   const key = Number(row.code);
   const prev = best.get(key);
-  if (!prev || row.scans > prev.scans) best.set(key, { line: row.line, scans: row.scans, why });
+  if (!prev || row.scans > prev.scans) best.set(key, { line: row.line, scans: row.scans, why, always: isOffInternalCode(row.code) });
 }
 
 // The unpacked export is about 10 GB. Reading stdin chunk by chunk with `for await` keeps the pipe's
@@ -143,20 +145,30 @@ if (rest && !tooLong) handleLine(rest);
 
 const rows = [...best.entries()].sort((a, b) => b[1].scans - a[1].scans || a[0] - b[0]);
 
-/** The most scanned rows that fit the size limits, hashed. */
+/** The most scanned rows that fit the size limits, hashed. Rows marked `always` are kept first and stay in scan order. */
 function makePack(source) {
-  const lines = [];
   let bytes = 0;
+  let count = 0;
+  const keep = new Set();
+  for (const r of source) {
+    if (!r.always) continue;
+    keep.add(r);
+    bytes += Buffer.byteLength(r.line) + 1;
+    count++;
+  }
   let cut = 0;
   for (const r of source) {
+    if (r.always) continue;
     const size = Buffer.byteLength(r.line) + 1;
-    if (bytes + size > TARGET_BYTES || lines.length >= TARGET_ROWS) {
+    if (bytes + size > TARGET_BYTES || count >= TARGET_ROWS) {
       cut++;
       continue;
     }
-    lines.push(r.line);
+    keep.add(r);
     bytes += size;
+    count++;
   }
+  const lines = source.filter((r) => keep.has(r)).map((r) => r.line);
   const text = lines.length ? `${lines.join('\n')}\n` : '';
   const body = Buffer.from(text, 'utf8');
   const sha512 = createHash('sha512').update(body).digest('hex');
@@ -219,7 +231,8 @@ function checkPack(p, m) {
   let unreadable = 0;
   for (const l of p.lines) if (!foodFromPackLine(l)) unreadable++;
   if (unreadable) throw new Error(`${unreadable} lines the app can't read`);
-  if (!index.lookup(p.lines[0].split('\t')[0])) throw new Error('lookup check failed');
+  const firstBarcode = p.lines.map((l) => l.split('\t')[0]).find((c) => !isOffInternalCode(c));
+  if (firstBarcode && !index.lookup(firstBarcode)) throw new Error('lookup check failed');
 }
 
 if (!dryRun) {
@@ -278,6 +291,7 @@ const summary = [
   `German products only: ${n(german.lines.length)} products, ${mb(german.body.length)}${german.cut ? `, ${n(german.cut)} left out for size` : ''}${germanOk ? '' : ` (below ${n(MIN_GERMAN_ROWS)}: not published)`}`,
   `  kept for a German barcode ${n(kept.barcode)}, a German shop or house brand ${n(kept.shop)}, made in Germany ${n(kept.made_here)}, ${FOREIGN_MIN_SCANS}+ scans ${n(kept.scans)}`,
   `  removed, no sign of Germany and fewer than ${FOREIGN_MIN_SCANS} scans: ${n(removed.not_german)}`,
+  `Without barcode (bakery, restaurant; always kept): ${n(rows.filter(([, r]) => r.always).length)}`,
   `(export rows ${n(total)}, sold in Germany ${n(germany)}, passed the checks ${n(best.size)}, broken lines ${skippedBroken})`,
   `With brand ${(brandShare * 100).toFixed(0)} %, with store ${(storeShare * 100).toFixed(0)} %`,
   ...packs.map(({ id, p }) => `File ${id}: ${p.file}`),

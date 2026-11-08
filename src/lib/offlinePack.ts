@@ -15,6 +15,7 @@
  * File format (UTF-8, one product per line, tab-separated, most scanned first):
  *   code  name  brands  stores  unit(g|ml)  servingGrams  servingLabel  kcal protein carbs fat sugar fiber satFat salt  searchText
  * Empty fields are unknown values. `searchText` is name, brands and stores folded by `foldSearch`.
+ * `code` is a barcode, or the code Open Food Facts gives a product without one (`isOffInternalCode`).
  *
  * Data: Open Food Facts, Open Database License (ODbL) 1.0. The pack is a derived database under the same licence.
  */
@@ -26,6 +27,16 @@ import { isPackId, PACK_IDS, type PackId } from './packIds';
 
 export { isPackId, PACK_IDS, type PackId };
 import type { Food, Nutrients } from './types';
+
+/**
+ * Open Food Facts gives a product without a barcode (bakery, market, restaurant) its own code, counting up
+ * from 2000000000001 (`assign_new_code` in Product Opener). These codes have no valid check digit, so
+ * `checkBarcode` refuses them; the pack keeps them anyway when the product names its shop as brand.
+ * They are never looked up as barcodes, only found by search.
+ */
+export function isOffInternalCode(code: string | undefined): code is string {
+  return typeof code === 'string' && /^200\d{10}$/.test(code);
+}
 
 /**
  * Public half of the pack signing key (base64, 32 bytes); the private half exists only as the
@@ -142,7 +153,9 @@ function brandsFromTags(tags: string | undefined): string {
  */
 export function packRow(rec: Record<string, string | undefined>): { code: string; line: string; scans: number } | null {
   const check = checkBarcode(rec.code ?? '');
-  if (!check.ok) return null;
+  const internal = !check.ok && isOffInternalCode(rec.code);
+  if (!check.ok && !internal) return null;
+  const code = check.ok ? check.code : rec.code!;
   const name = cleanField(rec.product_name_de || rec.product_name || rec.generic_name_de || rec.generic_name, 120);
   if (!name || !/[a-zA-Z\u00c0-\u024f\u0370-\u04ff]/.test(name)) return null;
 
@@ -172,9 +185,11 @@ export function packRow(rec: Record<string, string | undefined>): { code: string
   const servingG = numField(rec.serving_quantity);
   const serving = servingG !== undefined && servingG > 0 && servingG <= 2000 ? servingG : undefined;
   const brands = cleanField(rec.brands || rec.brands_en || brandsFromTags(rec.brands_tags), 80);
+  // Without a barcode, the brand (the bakery or restaurant) is what says which product this is.
+  if (internal && !brands) return null;
   const stores = cleanField(rec.stores, 60);
   const fields = [
-    check.code,
+    code,
     name,
     brands,
     stores,
@@ -192,7 +207,7 @@ export function packRow(rec: Record<string, string | undefined>): { code: string
     foldSearch(`${name} ${brands} ${stores}`),
   ];
   const scans = numField(rec.unique_scans_n) ?? 0;
-  return { code: check.code, line: fields.join('\t'), scans: scans > 0 ? scans : 0 };
+  return { code, line: fields.join('\t'), scans: scans > 0 ? scans : 0 };
 }
 
 /* ---------- The `german` pack's rules (scripts/build-offline-pack.mjs) ---------- */
@@ -264,7 +279,8 @@ export interface PackRemoved {
  */
 export function germanOnlyReason(rec: Record<string, string | undefined>, scans: number): keyof PackKept | 'not_german' {
   if (hasGermanBarcode(rec.code)) return 'barcode';
-  if (hasGermanStore(rec.stores) || hasGermanBrand(rec)) return 'shop';
+  // A product without barcode on Open Food Facts is a bakery's or restaurant's own item, named by its brand.
+  if (hasGermanStore(rec.stores) || hasGermanBrand(rec) || isOffInternalCode(rec.code)) return 'shop';
   if (madeInGermany(rec)) return 'made_here';
   if (scans >= FOREIGN_MIN_SCANS) return 'scans';
   return 'not_german';
@@ -284,7 +300,8 @@ export function foodFromPackLine(line: string): Food | undefined {
   if (f.length !== PACK_FIELDS) return undefined;
   const [code, name, brands, , unit, servingG, servingLabel] = f;
   const check = checkBarcode(code);
-  if (!check.ok || !name) return undefined;
+  const internal = !check.ok && isOffInternalCode(code);
+  if ((!check.ok && !internal) || !name) return undefined;
   const per100: Nutrients = { kcal: Number(f[7]), protein: Number(f[8]), carbs: Number(f[9]), fat: Number(f[10]) };
   if ([f[7], f[8], f[9], f[10]].some((v) => v === '')) return undefined;
   const extra = { sugar: optional(f[11]), fiber: optional(f[12]), satFat: optional(f[13]), salt: optional(f[14]) };
@@ -294,11 +311,11 @@ export function foodFromPackLine(line: string): Food | undefined {
   const u: 'g' | 'ml' = unit === 'ml' ? 'ml' : 'g';
   const sg = Number(servingG);
   return {
-    id: `off:${check.code}`,
+    id: `off:${check.ok ? check.code : code}`,
     source: 'off',
     name: cleanField(name, 120),
     brand: cleanField(brands.split(',')[0], 80) || undefined,
-    barcode: check.code,
+    ...(check.ok ? { barcode: check.code } : { offCode: code }),
     per100: checked.per100,
     unit: u,
     servings: servingG && sg > 0 && sg <= 2000 ? [{ label: cleanField(servingLabel, 30) || `${sg} ${u}`, grams: sg }] : [],
