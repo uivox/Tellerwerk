@@ -24,6 +24,7 @@ import {
 import { buildBackup, parseBackup, parseBackupReport } from '../src/lib/backup';
 import { appendPage, filterHistory, foodHistory, hideFromHistory, HISTORY_FILTER_FROM, matchesFood, normalizeHidden, OFF_PAGE_SIZE, sectionPage, shownCount } from '../src/lib/foodHistory';
 import { usualMeal } from '../src/lib/usualMeal';
+import { storeSizes, totalBytes, utf8Bytes } from '../src/lib/storageSizes';
 import { applySuggestion, checkIn, DEFAULT_GOAL_CHECK, dueCheckIn, normalizeGoalCheck, undoPatch, weightSlope, type Calculation } from '../src/lib/adaptiveGoal';
 import { addRecord, bodyHasPhoto, normalizeLog, noteRemoteImage, pruneLog, purposeFor, recordingFetch as connRecordingFetch, SERVERS, setConnectionSink, type ConnectionRecord } from '../src/lib/connectionLog';
 import { decryptBackup, encryptBackup, fromBase64, isEncryptedBackup, passwordProblem, toBase64, utf8Decode, utf8Encode } from '../src/lib/backupCrypto';
@@ -3868,4 +3869,37 @@ test('offline packs: new downloads default to German products, an existing pack 
   const b = JSON.parse(JSON.stringify(buildBackup({ ...parseBackup(JSON.stringify({ app: 'OpenPlate' })), packChoice: 'all' })));
   assert.equal(parseBackup(JSON.stringify(b)).packChoice, 'all');
   assert.equal(parseBackup(JSON.stringify({ app: 'OpenPlate', packChoice: 'evil' })).packChoice, undefined);
+});
+
+test('utf8Bytes counts what UTF-8 needs, not characters', () => {
+  assert.equal(utf8Bytes(''), 0);
+  assert.equal(utf8Bytes('abc'), 3);
+  assert.equal(utf8Bytes('Brötchen'), 9);
+  assert.equal(utf8Bytes('€'), 3);
+  assert.equal(utf8Bytes('🥨'), 4);
+  assert.equal(utf8Bytes('\ud83e'), 3); // a lone surrogate is written as U+FFFD
+  for (const sample of ['Käse’s „Brezel“ 🥨', 'x'.repeat(50)]) assert.equal(utf8Bytes(sample), Buffer.byteLength(sample, 'utf8'));
+});
+
+test('storeSizes splits the saved state into rows that add up', () => {
+  const saved = {
+    entries: [{ id: 'e1', name: 'Brötchen' }],
+    customFoods: [],
+    meals: [{ id: 'm' }],
+    recipes: [{ id: 'r', photo: 'data:image/jpeg;base64,AAAA' }],
+    weights: [{ date: '2026-11-08', kg: 80 }],
+    water: {},
+    fastingHistory: [],
+    fastingActive: null,
+    connections: [],
+    profile: { name: 'test-user' },
+    language: 'de',
+  };
+  const { parts, store } = storeSizes(saved);
+  assert.equal(parts.diary, Buffer.byteLength(JSON.stringify(saved.entries)));
+  assert.equal(parts.mealsRecipes, Buffer.byteLength(JSON.stringify(saved.meals)) + Buffer.byteLength(JSON.stringify(saved.recipes)));
+  assert.equal(parts.fasts, 2 + 4); // [] and null
+  assert.equal(parts.other, Buffer.byteLength(JSON.stringify({ profile: saved.profile, language: 'de' })));
+  assert.equal(store, Object.values(parts).reduce((a, b) => a + b, 0));
+  assert.equal(totalBytes({ parts, store }, 1000, -5), store + 1000);
 });
