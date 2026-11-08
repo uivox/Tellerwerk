@@ -73,6 +73,9 @@ for (const [chain, file] of [
   ['dominos', 'dominos.txt'],
   ['fiveguys', 'fiveguys.txt'],
   ['nordsee', 'nordsee.txt'],
+  ['ditsch', 'ditsch.txt'],
+  ['kamps', 'kamps.txt'],
+  ['hofpfisterei', 'hofpfisterei.txt'],
 ]) {
   for (const [name, g, unit, kcal, p, c, f, fib, sug, sat, salt] of read(file)) {
     add(chain, titleCase(name), unit === 'ml' ? 'ml' : 'g', num(g), '100', {
