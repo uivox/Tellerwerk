@@ -5,6 +5,9 @@ This page is for people who want to change the code, add recipes or run their ow
 - **Recipes:** community recipes are added through pull requests, see [RECIPES.md](RECIPES.md).
 - **Design:** palette, type, the plate and the sprout, see [DESIGN.md](DESIGN.md).
 - **Security problems:** please report them privately, see [SECURITY.md](../.github/SECURITY.md).
+- **Bugs, wrong food values, ideas:** the issue forms under [Issues → New issue](https://github.com/uivox/Tellerwerk/issues/new/choose). Pull requests get a template with the priorities check and the checklist below.
+- **Changes users notice** get a line in [CHANGELOG.md](../CHANGELOG.md) under *Unreleased*, in plain words. The next pull request after a release moves those lines under the new version number.
+- **Code of conduct:** [CODE_OF_CONDUCT.md](../.github/CODE_OF_CONDUCT.md).
 - **Working with an AI coding assistant:** [CLAUDE.md](../CLAUDE.md) holds the project rules (texts in English and German, colours from the theme, pure logic with tests, the same features on every platform).
 
 ## Develop on your PC

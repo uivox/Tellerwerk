@@ -3443,6 +3443,8 @@ test('rename: “OpenPlate” only appears where the move needs it', () => {
   // Files that talk about the move, keep the historic format id, or build the old copy.
   const allowed = new Set([
     'README.md',
+    'CHANGELOG.md',
+    '.github/SUPPORT.md',
     'CLAUDE.md',
     'docs/CONTRIBUTING.md',
     'app.config.js',

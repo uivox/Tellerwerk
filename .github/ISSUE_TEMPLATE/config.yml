@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/uivox/Tellerwerk/security/advisories/new
+    about: Report it privately, not in a public issue.
+  - name: Add a recipe
+    url: https://github.com/uivox/Tellerwerk/blob/main/docs/RECIPES.md
+    about: Community recipes are added through a pull request; this page explains the format.
+  - name: Questions and help
+    url: https://github.com/uivox/Tellerwerk/blob/main/.github/SUPPORT.md
+    about: How to install, back up, move to a new phone, and where to ask.

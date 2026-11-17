@@ -18,7 +18,7 @@ Useful to include: what you found, how to reproduce it, which version (app relea
 
 ## Out of scope
 
-- Someone with your unlocked phone or computer opening the app (there is no app lock).
+- Someone with your unlocked phone or computer opening the app while the app lock is off (it is off by default; Profile → *App lock*).
 - What Open Food Facts or your chosen AI provider do with requests you send them; see their own policies.
 - Dependency alerts for build tools that never run on your device. Known open ones are tracked in the repository's Security tab.
 

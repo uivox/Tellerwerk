@@ -1,0 +1,26 @@
+name: Idea for the app
+description: A new feature or a change to how something works.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every change is checked against three priorities: **you can switch it off** (customizability), **you can see how every number is worked out** (transparency), and **nothing leaves your device unless you start it** (security). Ideas that fit them are the easiest to take on.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do that you can't today?
+      description: Describe the situation more than the solution. "I eat the same lunch on workdays and log it by hand every time" helps more than "add a button".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+  - type: checkboxes
+    id: priorities
+    attributes:
+      label: Priorities
+      options:
+        - label: It can be switched off, or it only happens when I tap something.
+        - label: It sends nothing anywhere, or only when I start it.
