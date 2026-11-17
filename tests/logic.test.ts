@@ -3228,6 +3228,7 @@ test('restaurant search: names, chain names and serving', () => {
   // a chain name narrows the hits, written with or without apostrophe and spaces
   assert.deepEqual(searchRestaurants('mcdonalds pommes', 'de', 5, rows).map((f) => f.name), ['Pommes Frites mittel']);
   assert.deepEqual(searchRestaurants('burgerking pommes', 'de', 5, rows).map((f) => f.name), ['King Pommes mittel']);
+  assert.deepEqual(searchRestaurants('burger king whopper', 'de', 5, rows).map((f) => f.name), ['Whopper®']); // every word of the chain's name
   assert.equal(searchRestaurants('pommes', 'de', 5, rows).length, 2);
   assert.equal(searchRestaurants('nordsee', 'de', 5, rows).length, 1);
   assert.deepEqual(searchRestaurants('x', 'de', 5, rows), []);
@@ -3252,6 +3253,21 @@ test('restaurant search: names, chain names and serving', () => {
   assert.equal(normalizeLayout({ restaurantFoods: false } as never).restaurantFoods, false);
   assert.equal(normalizeLayout({ restaurantFoods: true } as never).restaurantFoods, undefined);
   assert.equal(normalizeLayout({ restaurantFoods: 'no' } as never).restaurantFoods, undefined);
+});
+
+test('restaurant items: Coffee Fellows keeps its own portions, drinks in ml', async () => {
+  const rows = await loadRestaurants();
+  // the chain's name (two words) narrows the search like any other chain
+  const hits = searchRestaurants('coffee fellows cappuccino', 'de', 10, rows);
+  assert.ok(hits.length > 0 && hits.every((f) => f.brand === 'Coffee Fellows'));
+  const cap = hits.find((f) => f.name === 'Cappuccino (Medium)');
+  assert.equal(cap?.unit, 'ml');
+  assert.deepEqual(cap?.servings, [{ label: '1 Portion', grams: 160 }]);
+  // one portion gives back the published per-portion figure (80 kcal)
+  assert.equal(Math.round((cap!.per100.kcal * cap!.servings[0].grams) / 100), 80);
+  // the two pizza sizes stay apart
+  const pizza = searchRestaurants('coffee fellows pizza margherita', 'de', 10, rows).map((f) => f.name);
+  assert.ok(pizza.includes('Pizza Margherita (ganze Pizza)') && pizza.includes('Pizza Margherita (Stück)'));
 });
 
 test('streak animation: only the first entry of the day, following the motion setting', () => {
