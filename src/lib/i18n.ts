@@ -597,6 +597,8 @@ const en = {
   delete_food_q: 'Delete this food?',
   about: 'About',
   about_text: 'Tellerwerk is a free, open-source calorie tracker. Your data stays on your phone.',
+  source_code: 'Source code on GitHub',
+  source_code_sub: 'Read the code, report a bug or suggest an idea',
   medical_disclaimer: 'Not medical advice. Talk to a doctor before big diet changes, fasting during pregnancy or with medical conditions.',
   welcome_text: 'Your calm little food diary. Snap a photo, scan a barcode, fast on your own rhythm. Free and open source.',
   q_goal: 'What is your goal?',
@@ -1806,6 +1808,8 @@ const de: Record<TKey, string> = {
   delete_food_q: 'Dieses Lebensmittel löschen?',
   about: 'Über',
   about_text: 'Tellerwerk ist ein kostenloser Open-Source-Kalorienzähler. Deine Daten bleiben auf deinem Handy.',
+  source_code: 'Quellcode auf GitHub',
+  source_code_sub: 'Code ansehen, einen Fehler melden oder eine Idee vorschlagen',
   medical_disclaimer:
     'Keine medizinische Beratung. Sprich vor großen Ernährungsumstellungen, Fasten in der Schwangerschaft oder bei Vorerkrankungen mit einer Ärztin oder einem Arzt.',
   welcome_text: 'Dein entspanntes Ernährungstagebuch. Foto knipsen, Barcode scannen, im eigenen Rhythmus fasten. Kostenlos und Open Source.',

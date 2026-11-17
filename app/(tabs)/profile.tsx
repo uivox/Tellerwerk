@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Linking, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteEverythingFlow } from '../../src/components/deleteEverything';
 import { exportBackupFlow } from '../../src/components/exportBackup';
@@ -10,6 +10,7 @@ import { Sprout } from '../../src/components/Sprout';
 import { TAB_BAR_SPACE } from '../../src/components/TabBar';
 import { Card, ChipGroup, Divider, ListRow, Row, Screen, SectionTitle, Txt } from '../../src/components/ui';
 import { PROVIDER_NAMES } from '../../src/lib/ai';
+import { REPO_URL } from '../../src/lib/appIdentity';
 import { daysSinceBackup } from '../../src/lib/backupReminder';
 import { dayKey, locale } from '../../src/lib/dates';
 import { canPickFiles } from '../../src/lib/device';
@@ -175,6 +176,15 @@ export default function ProfileScreen() {
         <Txt v="small">{t('off_attribution')}</Txt>
         <Txt v="small">{t('bls_attribution')}</Txt>
         <Txt v="small">{t('medical_disclaimer')}</Txt>
+      </Card>
+      <Card>
+        <ListRow
+          icon="logo-github"
+          title={t('source_code')}
+          subtitle={t('source_code_sub')}
+          right={<Ionicons name="open-outline" size={18} color={c.sub} />}
+          onPress={() => Linking.openURL(REPO_URL).catch(() => {})}
+        />
       </Card>
     </Screen>
   );
