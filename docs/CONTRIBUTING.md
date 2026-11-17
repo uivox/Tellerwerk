@@ -32,6 +32,14 @@ Every push to `main` is a release:
 - `build.yml` builds both apps (about 30 minutes) and publishes them under [Releases](https://github.com/uivox/Tellerwerk/releases/latest), with the SideStore source for the iPhone app. Android APKs are signed with the project key.
 - `web.yml` rebuilds the web version (a few minutes) and publishes it to its own site, see *Web version hosting* below.
 
+### Test builds of a branch
+
+Native changes (widgets, icons, a new native module) need the real apps, which the type check and the web build don't cover. *Actions → Build apps → Run workflow*, pick the branch: it builds the same APK and IPA (with the project's signing key for Android) but publishes no release, so the SideStore source and the releases page don't change. The files are the run's artifacts (*Artifacts* at the bottom of the run's page, kept 14 days, downloads need a GitHub login).
+
+- **Android:** unzip `android-Tellerwerk` and install the APK. It has the release id and key, so it installs over the released Tellerwerk and keeps its data.
+- **iPhone:** unzip `ios-Tellerwerk` and install the IPA with SideStore (*My Apps → +*). It replaces the installed Tellerwerk, keeping its data. A later release from the SideStore source puts the released version back.
+- Build numbers come from the run number, so a test build is numbered like the release that would follow it. Only runs on `main` publish.
+
 ### The move from OpenPlate (temporary)
 
 The app was called OpenPlate until the rename (plan and reasons: `claude/RENAME.md` in the project docs). Tellerwerk has a new app id and a new web address, so users move their data with a backup file. For the move period:
