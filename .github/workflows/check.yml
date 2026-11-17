@@ -20,6 +20,8 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A normal run takes about 6 minutes. A hung step fails the job after this instead of GitHub's 6 hours.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -44,11 +46,15 @@ jobs:
         run: bash scripts/ci-run.sh npm run build:web
         env:
           WEB_BASE_URL: ''
-      - name: Click through the web app in a headless browser
+      # The browser install once hung for an hour (5 November 2026): give it 4 minutes, then one more try.
+      - name: Install the headless browser
+        timeout-minutes: 10
         run: |
           npm i --no-save --no-audit --no-fund playwright@1
-          npx playwright install --with-deps chromium
-          bash scripts/ci-run.sh node scripts/web-smoke.mjs dist
+          timeout 240 npx playwright install --with-deps chromium || timeout 240 npx playwright install --with-deps chromium
+      - name: Click through the web app in a headless browser
+        timeout-minutes: 12
+        run: bash scripts/ci-run.sh node scripts/web-smoke.mjs dist
       - uses: actions/upload-artifact@v6
         if: always()
         with:

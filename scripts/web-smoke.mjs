@@ -1019,6 +1019,16 @@ async function run(scheme) {
       if ('records' in data || JSON.stringify(data).includes('smoke note')) throw new Error('the AI answer log leaked into the backup');
       await text(/Last export: today/).waitFor();
     });
+    await step('about: the source code row opens the repository', async () => {
+      await page.getByRole('tab', { name: 'Profile' }).click();
+      await ctx.route('https://github.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>repo</title>' }));
+      const popup = page.waitForEvent('popup');
+      await text('Source code on GitHub', { exact: true }).click();
+      const opened = await popup;
+      if (opened.url() !== 'https://github.com/uivox/Tellerwerk') throw new Error(`opened ${opened.url()}`);
+      await opened.close();
+      await ctx.unroute('https://github.com/**');
+    });
     await step('your data: what is stored, the servers, and the connection log of the lookups above', async () => {
       await page.getByRole('tab', { name: 'Profile' }).click();
       await text('Your data', { exact: true }).click();
