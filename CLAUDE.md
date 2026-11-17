@@ -16,6 +16,7 @@ Every change is checked against these three, and every pull request description 
 - Before calling anything done: `npm run check && npm test`. For changes the web app can see, also build it and click through it:
   `WEB_BASE_URL='' npm run build:web`, then `npm i --no-save playwright@1 && npx playwright install chromium && node scripts/web-smoke.mjs dist`.
 - Check every feature on native and web: the same flow must work in the iPhone app, the Android app and the browser. Cover it in `scripts/web-smoke.mjs` where the browser can run it, and list what to check by hand on the phones for native-only code.
+- A change users notice gets a line in `CHANGELOG.md` under *Unreleased* (plain words, like the README). If *Unreleased* has lines from a pull request that has since been released, move them under that release's version and date first (the version is the release tag, `1.0.<run>`).
 - When a pull request is ready: summarise what changed and give a short checklist of what to test by hand on the iPhone (and Android, for native-only code).
 
 ## Rules for changes

@@ -1,0 +1,44 @@
+name: Wrong or missing food values
+description: A built-in food, a restaurant item or a search result has wrong or missing values.
+labels: [food data]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Products with a barcode** come from Open Food Facts, which anyone can correct. The fastest fix is in the app: open the food → *Send to Open Food Facts*, or edit it on [openfoodfacts.org](https://world.openfoodfacts.org/). The offline product pack picks up the change with its next weekly build.
+        Use this form for the app's own data: the basics, the German BLS database, restaurant items, community recipes, or a product the app reads wrongly.
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where is the food from?
+      description: The food's screen says where its values come from.
+      options:
+        - Basics (built into the app)
+        - BLS (German nutrient database)
+        - Restaurant item
+        - Community recipe
+        - Open Food Facts or the offline product pack
+        - I'm not sure
+    validations:
+      required: true
+  - type: input
+    id: food
+    attributes:
+      label: Food name, and the barcode if it has one
+      placeholder: "Oat flakes · or: Brand X Muesli, 4000000000000"
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong, and what should it be?
+      placeholder: "Shows 12 g protein per 100 g; the pack says 13.5 g."
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Where does the right value come from?
+      description: A photo of the nutrition label, or a link to the maker's or chain's own nutrition page.
+    validations:
+      required: true

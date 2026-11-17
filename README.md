@@ -281,7 +281,7 @@ Tellerwerk is written with Claude, Anthropic's AI, as a coding assistant. Every 
 
 ## Contributing
 
-Recipes, fixes and ideas are welcome. Setting up the code, the project layout and how releases are built: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Recipes, fixes and ideas are welcome. Bugs, wrong food values and ideas each have a form under [Issues](https://github.com/uivox/Tellerwerk/issues/new/choose); questions are answered in [SUPPORT.md](.github/SUPPORT.md). Setting up the code, the project layout and how releases are built: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). What changed in each release: [CHANGELOG.md](CHANGELOG.md). Everyone taking part follows the [code of conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Credits and licence
 
